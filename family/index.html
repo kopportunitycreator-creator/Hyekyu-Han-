@@ -131,16 +131,19 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 .avoid { grid-column: 2 / -1; padding: 0 12px 10px !important; font-size: 12px; color: var(--muted); }
 .avoid b { color: var(--kinder); }
 .link.on { font-weight: 700; }
-.recipe { grid-column: 1 / -1; border-top: 1px dashed var(--line); background: var(--bg); padding: 14px 16px !important; display: grid; gap: 12px; }
+.recipe { grid-column: 1 / -1; border-top: 1px dashed var(--line); background: var(--bg); padding: 14px 16px !important; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.recipe > *, .recipe-body > * { min-width: 0; }
+.recipe h3, .recipe .steps li, .kidtip, .adulttip, .ing li span { word-break: keep-all; overflow-wrap: anywhere; }
 .recipe-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; justify-content: space-between; }
 .recipe-head h3 { font-size: 19px; }
 .serves { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.recipe-body { display: grid; gap: 16px; grid-template-columns: 1fr; }
+.recipe-body { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 760px) { .recipe-body { grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr); } }
 .recipe h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .05em; color: var(--muted); }
 .ing { list-style: none; margin: 0; padding: 0; font-size: 14px; }
 .ing li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px dotted var(--line); }
-.ing li span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+.ing li span:first-child { flex: 1 1 0; min-width: 0; }
+.ing li span:last-child { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; flex: 0 0 auto; max-width: 48%; overflow-wrap: break-word; }
 .steps { margin: 0; padding-left: 1.4em; font-size: 14px; display: grid; gap: 6px; max-width: 65ch; }
 .steps li::marker { font-weight: 700; color: var(--accent); }
 .kidtip { font-size: 13px; background: var(--mark); color: var(--mark-ink); border-radius: 8px; padding: 8px 10px; }
