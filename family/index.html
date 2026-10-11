@@ -209,12 +209,15 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
 .toggle input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
 .toggle .hint { display: block; }
 .found { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
-.found-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 8px; align-items: start; font-size: 14px; padding: 4px 0; border-bottom: 1px dotted var(--line); cursor: pointer; }
-.found-item:last-of-type { border-bottom: 0; }
-.found-item input { margin-top: 4px; accent-color: var(--accent); }
-.found-item .where { font-size: 12px; color: var(--muted); white-space: nowrap; }
-.found-item .note { grid-column: 2 / -1; font-size: 12px; color: var(--warn); }
-.found-item.unsure .nm::after { content: " ?"; color: var(--warn); font-weight: 700; }
+.found-row { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 8px 0; border-bottom: 1px dotted var(--line); }
+.found-row input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+.found-row .f-name { flex: 1 1 140px; min-width: 0; }
+.found-row .f-qty { flex: 0 1 110px; min-width: 0; }
+.found-row input[type="text"] { padding: 6px 8px; }
+.found-row select { padding: 5px 6px; }
+.found-row.unsure .f-name { border-color: var(--warn); }
+.found-row .f-hint { flex-basis: 100%; font-size: 12px; color: var(--warn); padding-left: 24px; }
+.found-row .f-note { flex-basis: 100%; font-size: 12px; color: var(--warn); padding-left: 24px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .found-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 6px; }
 .credit { text-align: center; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: .02em; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
@@ -1202,28 +1205,46 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
 
   let found = [];
   function fStatus(t, err) { const s = $("fStatus"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
+  // 찾은 재료: 이름·양·보관 위치를 직접 고치고, 빼거나 추가할 수 있음
   function renderFound() {
     const box = $("fridgeResult"); box.replaceChildren();
     if (!found.length) return;
     const wrap = el("div", "found");
     found.forEach((it, n) => {
-      const row = el("label", "found-item" + (it.sure === false ? " unsure" : ""));
+      const row = el("div", "found-row" + (it.sure === false ? " unsure" : ""));
       const cb = el("input"); cb.type = "checkbox"; cb.id = "found-" + n; cb.checked = it.keep !== false;
-      cb.onchange = () => { it.keep = cb.checked; };
-      row.append(cb, el("span", "nm", `${it.name}${it.qty ? " " + it.qty : ""}`), el("span", "where", it.where || ""));
-      if (it.note) row.append(el("span", "note", it.note));
+      cb.setAttribute("aria-label", "이 재료 넣기"); cb.onchange = () => { it.keep = cb.checked; };
+      const nm = el("input", "f-name"); nm.type = "text"; nm.id = "found-name-" + n; nm.value = it.name || ""; nm.placeholder = "재료 이름";
+      nm.setAttribute("aria-label", "재료 이름"); nm.oninput = () => { it.name = nm.value.trim(); it.sure = true; row.classList.remove("unsure"); };
+      const qty = el("input", "f-qty"); qty.type = "text"; qty.id = "found-qty-" + n; qty.value = it.qty || ""; qty.placeholder = "양";
+      qty.setAttribute("aria-label", "양"); qty.oninput = () => { it.qty = qty.value.trim(); };
+      const wh = el("select", "f-where"); wh.id = "found-where-" + n; wh.setAttribute("aria-label", "보관 위치");
+      ["냉동", "냉장", "실온"].forEach((w) => { const o = el("option", null, w); o.value = w; if ((it.where || "냉장") === w) o.selected = true; wh.append(o); });
+      wh.onchange = () => { it.where = wh.value; };
+      const del = el("button", "link quiet", "삭제"); del.onclick = () => { found.splice(n, 1); renderFound(); };
+      row.append(cb, nm, qty, wh, del);
+      if (it.sure === false) row.append(el("span", "f-hint", "사진만으로 확실하지 않아요. 이름을 확인해 주세요."));
+      if (it.note) {
+        const lab = el("label", "f-note"); const urgent = el("input"); urgent.type = "checkbox"; urgent.id = "found-urgent-" + n; urgent.checked = true;
+        urgent.onchange = () => { it.note = urgent.checked ? it.note || "빨리" : ""; };
+        lab.append(urgent, ` 빨리 쓰기 · ${it.note}`); row.append(lab);
+      }
       wrap.append(row);
     });
     const acts = el("div", "found-acts");
+    const more = el("button", "ghost", "+ 직접 추가");
+    more.onclick = () => { found.push({ name: "", qty: "", where: "냉장", sure: true, note: "", keep: true }); renderFound(); $("found-name-" + (found.length - 1))?.focus(); };
     const add = el("button", "primary", "체크한 재료를 집 재료에 넣기"); add.onclick = addFound;
     const clear = el("button", "link quiet", "닫기"); clear.onclick = () => { found = []; renderFound(); };
-    acts.append(add, clear, el("span", "hint", "? 는 사진만으로 확실하지 않은 재료예요. 빼거나 넣은 뒤 고쳐주세요."));
-    wrap.append(acts); box.append(wrap);
+    acts.append(more, add, clear);
+    wrap.append(acts);
+    wrap.append(el("p", "hint", "잘못 알아본 재료는 이름·양·보관 위치를 바로 고치거나 삭제하세요. 넣은 뒤에도 '집에 있는 재료' 칸에서 고칠 수 있어요."));
+    box.append(wrap);
   }
   function addFound() {
     const cur = $("pantry").value.trim();
     const have = cur.replace(/\s/g, "");
-    const add = found.filter((it) => it.keep !== false && !have.includes(it.name.replace(/\s/g, "")))
+    const add = found.filter((it) => it.keep !== false && it.name && !have.includes(it.name.replace(/\s/g, "")))
       .map((it) => `${it.name}${it.qty ? " " + it.qty : ""}${it.where ? `(${it.where}${it.note ? "·빨리" : ""})` : it.note ? "(빨리)" : ""}`);
     if (!add.length) { fStatus("새로 넣을 재료가 없어요. 이미 목록에 있어요."); return; }
     $("pantry").value = (cur ? cur + ", " : "") + add.join(", ");
