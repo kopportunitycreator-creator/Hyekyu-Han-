@@ -138,6 +138,12 @@ rep("- kidTip: 해린이(48개월) 몫을", "- kidTip: 아이 몫(나이 참고)
 rep("/ 메이플베어 ${k.mb", "/ ${xName()} ${k.mb")
 rep("해린이는 유치원에서 먹은 것과 주재료", "아이는 유치원에서 먹은 것과 주재료")
 
+rep("""    setTimeout(() => (msg.textContent = ""), 2000);
+    renderSummary();
+  }));""", """    setTimeout(() => (msg.textContent = ""), 2000);
+    applyFamilyLabels(); renderWeekTab();
+  }));""")
+
 # ---- first-run banner ----
 rep("""    const b = $("banners"); b.replaceChildren();
 """, """    const b = $("banners"); b.replaceChildren();
