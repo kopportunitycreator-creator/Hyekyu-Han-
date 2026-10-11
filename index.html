@@ -351,7 +351,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   let week = null, month = null, settings = {};
   const months = {}; // cache of month docs used by the week view
   let unsubWeek = null, unsubMonth = null;
-  let sample = null, busy = false;
+  let sample = null, busy = false, booted = false;
   const files = { lunch: [], mb: [] };
 
   // ---------- tabs ----------
@@ -451,6 +451,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 
   function renderBanners() {
     const b = $("banners"); b.replaceChildren();
+    if (booted && !db) b.append(el("div", "banner stale", "claude.ai에 로그인한 상태로 열어야 가족이 함께 쓰는 식단과 장보기 체크가 보여요. 지금은 이 기기에만 저장돼요."));
     if (week?.example) b.append(el("div", "banner example", "예시 식단이에요. 유치원 식단표를 넣고 '이번 주 식단 짜기'를 누르면 우리 집 식단으로 바뀌어요."));
     const missing = DAYS.slice(0, 5).filter((_, i) => !kinderFor(i)).length;
     if (missing === 5 && !week?.example) {
@@ -875,7 +876,8 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
     for (const k in months) delete months[k];
     openWeek(weekId); openMonth(monthId);
     setBusy(false);
-    setStatus(sample ? "" : "이 화면에서는 Claude에 연결할 수 없어요. claude.ai에 로그인한 상태로 열어 주세요.", !sample);
+    booted = true; renderBanners();
+    setStatus(sample ? "" : "이 계정에서는 식단 짜기를 쓸 수 없어요. 식단 보기와 장보기 체크는 그대로 쓸 수 있어요.");
   })();
 })();
 </script>
