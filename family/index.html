@@ -1,0 +1,1064 @@
+<title>우리 집 식탁</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: kitchen notebook with three tabs — this week (pantry → plan → shopping), the monthly kindergarten menu, family preferences. */
+:root {
+  --bg: #f5f7f2;
+  --surface: #ffffff;
+  --surface-2: #eef2ea;
+  --ink: #1d2721;
+  --muted: #5d6b62;
+  --line: #d8dfd4;
+  --accent: #2c6a4c;
+  --accent-ink: #ffffff;
+  --mark: #f6d55c;
+  --mark-ink: #3a2f00;
+  --kinder: #3f6aa0;
+  --kinder-bg: #e8eef7;
+  --warn: #b4430e;
+  --warn-bg: #fbeee6;
+  --font-display: "Jua", "IBM Plex Sans KR", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a16; --surface: #1c241f; --surface-2: #232d27; --ink: #e6ece7; --muted: #9caaa1;
+    --line: #34413a; --accent: #6cc196; --accent-ink: #0d1a13; --mark: #e9c53f; --mark-ink: #2a2100;
+    --kinder: #8fb3e3; --kinder-bg: #1f2a3a; --warn: #f0905e; --warn-bg: #3a2418; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a16; --surface: #1c241f; --surface-2: #232d27; --ink: #e6ece7; --muted: #9caaa1;
+  --line: #34413a; --accent: #6cc196; --accent-ink: #0d1a13; --mark: #e9c53f; --mark-ink: #2a2100;
+  --kinder: #8fb3e3; --kinder-bg: #1f2a3a; --warn: #f0905e; --warn-bg: #3a2418; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1200px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; gap: 18px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; margin: 0; text-wrap: balance; }
+h1 { font-size: 32px; line-height: 1.1; }
+h2 { font-size: 21px; }
+h3 { font-size: 16px; }
+p { margin: 0; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+/* header */
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+.family { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 13px; }
+.chip.kid { background: var(--mark); color: var(--mark-ink); }
+.nav { display: flex; align-items: center; gap: 8px; }
+.nav .label { font-family: var(--font-display); font-size: 20px; min-width: 10ch; text-align: center; font-variant-numeric: tabular-nums; }
+.iconbtn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; width: 36px; height: 36px; font-size: 18px; line-height: 1; }
+.iconbtn:hover { border-color: var(--accent); }
+
+/* tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { border: 0; background: none; color: var(--muted); padding: 10px 14px; font-weight: 700; font-size: 15px; border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.panel { display: grid; gap: 16px; min-width: 0; }
+
+/* cards & fields */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; min-width: 0; align-content: start; }
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 12px; }
+.row2 { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 860px) { .row2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.field { display: grid; gap: 6px; }
+.field > label, .field > .lab { font-weight: 700; font-size: 14px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+textarea, input[type="text"], input[type="number"] { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; padding: 8px 10px; resize: vertical; }
+textarea { min-height: 76px; }
+input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
+.drop { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border: 1px dashed var(--line); border-radius: 8px; padding: 10px; font-size: 13px; color: var(--muted); background: var(--bg); cursor: pointer; }
+.drop:hover, .drop.over { border-color: var(--accent); color: var(--ink); }
+.drop input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.thumbs { display: flex; flex-wrap: wrap; gap: 6px; }
+.thumbs:empty { display: none; }
+.thumb { position: relative; width: 56px; height: 56px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb button { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--ink); color: var(--bg); font-size: 11px; line-height: 18px; padding: 0; }
+.primary { border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 8px; padding: 11px 16px; font-weight: 700; font-size: 15px; }
+.primary:disabled { opacity: .55; cursor: progress; }
+.ghost { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px; font-size: 13px; }
+.ghost:hover { border-color: var(--accent); color: var(--accent); }
+.status { font-size: 13px; color: var(--muted); min-height: 1.4em; }
+.status.err { color: var(--warn); }
+.saved { font-size: 12px; color: var(--accent); }
+
+.summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.summary .chip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* banners */
+.banner { border-radius: var(--r); padding: 10px 14px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.banner.example { background: var(--mark); color: var(--mark-ink); }
+.banner.stale { background: var(--warn-bg); color: var(--warn); }
+.banner.note { background: var(--surface-2); color: var(--ink); }
+.banner:empty { display: none; }
+
+/* week table */
+.week { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.week-head, .day { display: grid; grid-template-columns: 78px minmax(0,1.05fr) minmax(0,1fr) minmax(0,.85fr) minmax(0,1fr); }
+.week-head > div { padding: 8px 12px; font-size: 12px; letter-spacing: .04em; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line); font-weight: 700; }
+.day { border-bottom: 1px solid var(--line); }
+.day:last-child { border-bottom: 0; }
+.day.today .dlabel { background: var(--mark); color: var(--mark-ink); }
+.day > div { padding: 10px 12px; min-width: 0; }
+.dlabel { display: grid; align-content: start; border-right: 1px solid var(--line); }
+.dlabel .d { font-family: var(--font-display); font-size: 22px; line-height: 1.1; }
+.dlabel .date, .dlabel .tot { font-size: 12px; opacity: .8; font-variant-numeric: tabular-nums; }
+.kcell { background: var(--kinder-bg); font-size: 13px; display: grid; gap: 4px; align-content: start; }
+.ktag { display: inline-block; font-size: 11px; font-weight: 700; color: var(--kinder); letter-spacing: .03em; margin-right: 4px; }
+.meal { display: grid; gap: 3px; align-content: start; border-left: 1px solid var(--line); }
+.meal .lab { display: none; }
+.meal .menu { font-weight: 700; font-size: 15px; }
+.meal .min { font-weight: 400; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.meal .sides { font-size: 13px; color: var(--muted); }
+.meal .tip { font-size: 12px; color: var(--muted); border-left: 2px solid var(--mark); padding-left: 6px; margin-top: 2px; }
+.meal.off { background: repeating-linear-gradient(135deg, transparent 0 8px, var(--surface-2) 8px 9px); }
+.meal .offtag { font-size: 12px; font-weight: 700; color: var(--warn); }
+.meal .offnote { font-size: 13px; padding: 4px 8px; }
+.meal .placeholder { font-size: 13px; color: var(--muted); }
+.acts { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
+.link { border: 0; background: none; color: var(--accent); font-size: 12px; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+.link.quiet { color: var(--muted); }
+.link:disabled { color: var(--muted); text-decoration: none; cursor: progress; }
+.avoid { grid-column: 2 / -1; padding: 0 12px 10px !important; font-size: 12px; color: var(--muted); }
+.avoid b { color: var(--kinder); }
+.link.on { font-weight: 700; }
+.recipe { grid-column: 1 / -1; border-top: 1px dashed var(--line); background: var(--bg); padding: 14px 16px !important; display: grid; gap: 12px; }
+.recipe-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; justify-content: space-between; }
+.recipe-head h3 { font-size: 19px; }
+.serves { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.recipe-body { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .recipe-body { grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr); } }
+.recipe h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .05em; color: var(--muted); }
+.ing { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.ing li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px dotted var(--line); }
+.ing li span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+.steps { margin: 0; padding-left: 1.4em; font-size: 14px; display: grid; gap: 6px; max-width: 65ch; }
+.steps li::marker { font-weight: 700; color: var(--accent); }
+.kidtip { font-size: 13px; background: var(--mark); color: var(--mark-ink); border-radius: 8px; padding: 8px 10px; }
+.adulttip { font-size: 13px; color: var(--muted); }
+@media (max-width: 760px) {
+  .week-head { display: none; }
+  .day { grid-template-columns: 1fr; }
+  .dlabel { border-right: 0; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 8px; padding-block: 8px !important; }
+  .meal { border-left: 0; border-top: 1px solid var(--line); }
+  .meal .lab { display: block; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+  .avoid { grid-column: 1; padding-top: 10px !important; border-top: 1px solid var(--line); }
+}
+
+/* shopping */
+.shop-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.progress { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bar { width: 120px; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.cats { display: grid; gap: 16px 20px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.cat h3 { font-size: 15px; padding-bottom: 4px; border-bottom: 2px solid var(--ink); margin-bottom: 4px; display: flex; justify-content: space-between; }
+.cat h3 span { font-family: var(--font-body); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.item { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 2px 8px; align-items: start; padding: 6px 0; border-bottom: 1px dotted var(--line); cursor: pointer; }
+.item input { margin-top: 4px; accent-color: var(--accent); width: 16px; height: 16px; }
+.item .nm { font-size: 14px; }
+.item .qty { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.item .for { grid-column: 2 / -1; font-size: 11.5px; color: var(--muted); }
+.item.done .nm, .item.done .qty { text-decoration: line-through; color: var(--muted); }
+.pantry-use { font-size: 13px; color: var(--muted); }
+.pantry-use b { color: var(--ink); }
+.copybox { min-height: 160px; }
+
+/* month table */
+.mtable-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+.mtable { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 13px; }
+.mtable th { text-align: left; font-size: 12px; color: var(--muted); background: var(--surface-2); padding: 8px 10px; letter-spacing: .03em; }
+.mtable td { border-top: 1px solid var(--line); padding: 4px 6px; vertical-align: top; }
+.mtable td.dt { padding: 8px 10px; white-space: nowrap; font-variant-numeric: tabular-nums; width: 74px; }
+.mtable tr.wk td { border-top: 2px solid var(--ink); }
+.mtable input { width: 100%; border: 1px solid transparent; background: transparent; color: var(--ink); font: inherit; padding: 4px 6px; border-radius: 6px; }
+.mtable input:hover, .mtable input:focus { border-color: var(--line); background: var(--bg); }
+.mtable td.mb input { color: var(--kinder); }
+.empty { padding: 28px 20px; text-align: center; color: var(--muted); display: grid; gap: 6px; justify-items: center; }
+.empty h3 { color: var(--ink); }
+.prefs-grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .prefs-grid { grid-template-columns: 1fr 1fr; } }
+.who { font-family: var(--font-display); font-size: 17px; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>우리 집 식탁</h1>
+      <div class="family" id="familyChips"></div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="화면 선택">
+    <button class="tab" role="tab" id="tab-week" aria-controls="p-week" aria-selected="true">이번 주 식단·장보기</button>
+    <button class="tab" role="tab" id="tab-month" aria-controls="p-month" aria-selected="false">유치원 식단표 (월별)</button>
+    <button class="tab" role="tab" id="tab-prefs" aria-controls="p-prefs" aria-selected="false">우리 가족·취향</button>
+  </nav>
+
+  <!-- ============ WEEK ============ -->
+  <section class="panel" id="p-week" role="tabpanel" aria-labelledby="tab-week">
+    <div class="top">
+      <h2 id="weekTitle">이번 주</h2>
+      <div class="nav" aria-label="주 선택">
+        <button class="iconbtn" id="prevWeek" aria-label="이전 주">‹</button>
+        <div class="label" id="weekLabel">—</div>
+        <button class="iconbtn" id="nextWeek" aria-label="다음 주">›</button>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <div class="field">
+          <label for="pantry">집에 있는 재료 <span class="hint">먼저 쓰고, 장보기에서 빼요</span></label>
+          <textarea id="pantry" placeholder="예) 감자 3개, 양파 2개, 애호박 1개, 두부 1모, 냉동 새우, 달걀 6개, 김, 쌀"></textarea>
+          <span class="saved" id="pantrySaved"></span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>이번 주 만들 끼니</h3><span class="hint">표에서 끼니를 눌러 외식·빼기</span></div>
+        <div class="summary" id="slotSummary"></div>
+        <button class="primary" id="generate">이번 주 식단 짜기</button>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div id="banners" class="panel"></div>
+    <div class="week" id="week" aria-label="주간 식단"></div>
+    <div class="card" id="shop" aria-label="장보기 목록" hidden></div>
+  </section>
+
+  <!-- ============ MONTH ============ -->
+  <section class="panel" id="p-month" role="tabpanel" aria-labelledby="tab-month" hidden>
+    <div class="top">
+      <h2>유치원 식단표</h2>
+      <div class="nav" aria-label="달 선택">
+        <button class="iconbtn" id="prevMonth" aria-label="이전 달">‹</button>
+        <div class="label" id="monthLabel">—</div>
+        <button class="iconbtn" id="nextMonth" aria-label="다음 달">›</button>
+      </div>
+    </div>
+    <p class="muted small">한 달에 한 번, 유치원·어린이집 식단표와 방과후 수업 간식표(있으면)를 사진이나 글로 넣고 '식단표 읽기'를 누르세요. 날짜별로 정리된 표는 직접 고칠 수 있고, 매주 식단을 짤 때 이 표를 보고 겹치는 메뉴를 피해요.</p>
+    <div class="row2">
+      <div class="card">
+        <div class="field">
+          <label for="lunchText"><span class="kName">유치원</span> 식단표 <span class="hint">점심·간식</span></label>
+          <label class="drop" id="lunchDrop"><input type="file" id="lunchFiles" accept="image/*" multiple><span>식단표 사진 올리기 (끌어놓기 가능)</span></label>
+          <div class="thumbs" id="lunchThumbs"></div>
+          <textarea id="lunchText" placeholder="사진 대신 글로 넣어도 돼요. 예) 10/12 현미밥, 닭곰탕, 애호박볶음 / 오후간식 찐감자"></textarea>
+        </div>
+      </div>
+      <div class="card">
+        <div class="field">
+          <label for="mbText"><span class="xName">방과후 수업</span> 간식표 <span class="hint" id="xDaysHint">있는 경우만</span></label>
+          <label class="drop" id="mbDrop"><input type="file" id="mbFiles" accept="image/*" multiple><span>간식표 사진 올리기</span></label>
+          <div class="thumbs" id="mbThumbs"></div>
+          <textarea id="mbText" placeholder="예) 10/12 고구마 머핀, 우유 / 10/14 바나나 팬케이크"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="card-head">
+      <button class="primary" id="extract">식단표 읽기</button>
+      <div class="status" id="mStatus" role="status" aria-live="polite"></div>
+    </div>
+    <div id="mtable"></div>
+  </section>
+
+  <!-- ============ PREFS ============ -->
+  <section class="panel" id="p-prefs" role="tabpanel" aria-labelledby="tab-prefs" hidden>
+    <h2>우리 가족·취향</h2>
+    <p class="muted small">입력하면 바로 저장되고, 식단을 짤 때마다 반영돼요. 여기 적은 내용은 내 계정에만 저장되고 링크를 받은 다른 사람에게는 보이지 않아요.</p>
+    <div class="prefs-grid">
+      <div class="card">
+        <span class="who">우리 가족</span>
+        <div class="field"><label for="adults">어른 수</label><div style="display:flex;align-items:center;gap:8px"><input type="number" id="adults" min="1" max="8" step="1" placeholder="2"> <span>명</span></div></div>
+        <div class="field"><label for="kids">아이 이름·나이 <span class="hint">여러 명이면 쉼표로</span></label><input type="text" id="kids" placeholder="예) 서윤 5살, 도윤 20개월"></div>
+        <div class="field"><label for="kinderName">유치원·어린이집 이름</label><input type="text" id="kinderName" placeholder="예) 햇살유치원"></div>
+      </div>
+      <div class="card">
+        <span class="who">방과후 수업 간식</span>
+        <p class="muted small">유치원 끝나고 간식을 주는 수업이 있으면 적어주세요. 그 요일엔 집 간식을 빼고, 그 간식과도 겹치지 않게 짜요.</p>
+        <div class="field"><label for="extraName">수업 이름</label><input type="text" id="extraName" placeholder="예) 영어 놀이반 (없으면 비워두세요)"></div>
+        <div class="field"><span class="lab">간식 주는 요일</span>
+          <div class="summary" id="extraDaysBox"></div>
+        </div>
+      </div>
+      <div class="card">
+        <span class="who kLabel">아이</span>
+        <div class="field"><label for="kidLikes">좋아하는 음식·특성</label><textarea id="kidLikes" placeholder="예) 계란말이, 미역국, 새우. 부드러운 식감, 동그란 모양 좋아함. 비빔 싫어하고 따로 담아주면 잘 먹음"></textarea></div>
+        <div class="field"><label for="kidDislikes">안 먹는 음식</label><input type="text" id="kidDislikes" placeholder="예) 버섯, 가지, 매운 것"></div>
+      </div>
+      <div class="card">
+        <span class="who">배우자</span>
+        <div class="field"><label for="dadLikes">좋아하는 음식·특성</label><textarea id="dadLikes" placeholder="예) 국물 요리, 고기, 얼큰한 맛. 아침은 가볍게"></textarea></div>
+        <div class="field"><label for="dadDislikes">안 먹는 음식</label><input type="text" id="dadDislikes" placeholder="예) 오이"></div>
+      </div>
+      <div class="card">
+        <span class="who">나</span>
+        <div class="field"><label for="momLikes">좋아하는 음식·특성</label><textarea id="momLikes" placeholder="예) 채소 많은 반찬, 생선"></textarea></div>
+        <div class="field"><label for="allergy">가족 알레르기</label><input type="text" id="allergy" placeholder="없으면 비워두세요"></div>
+      </div>
+      <div class="card">
+        <span class="who">요리 시간</span>
+        <div class="field">
+          <label for="cookMin">하루 요리 시간 <span class="hint">아침·간식·저녁 합계</span></label>
+          <div style="display:flex;align-items:center;gap:8px"><input type="number" id="cookMin" min="10" max="180" step="5" placeholder="30"> <span>분 이내</span></div>
+        </div>
+        <div class="field"><label for="extra">기타 요청</label><textarea id="extra" placeholder="예) 주말에 미리 손질해 두는 건 괜찮아요. 에어프라이어 있음"></textarea></div>
+      </div>
+    </div>
+    <span class="saved" id="prefsSaved"></span>
+  </section>
+</div>
+
+<script>
+(() => {
+  const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
+  const MEALS = [{ k: "breakfast", l: "아침" }, { k: "snack", l: "간식" }, { k: "dinner", l: "저녁" }];
+  const CATS = ["채소·과일", "육류·달걀", "생선·해산물", "두부·유제품", "곡류·면·빵", "소스·기타"];
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+
+  // ---------- dates ----------
+  const pad = (n) => String(n).padStart(2, "0");
+  const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const ym = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  const parseYmd = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, (m || 1) - 1, d || 1); };
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const md = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  function defaultMonday() {
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const dow = (t.getDay() + 6) % 7;
+    const mon = addDays(t, -dow);
+    return dow >= 5 ? addDays(mon, 7) : mon; // 토·일에는 다음 주
+  }
+  const weekDates = (id) => DAYS.map((_, i) => addDays(parseYmd(id), i));
+  function weekLabel(id) {
+    const s = parseYmd(id), e = addDays(s, 6);
+    return s.getMonth() === e.getMonth() ? `${s.getMonth() + 1}월 ${s.getDate()}–${e.getDate()}일` : `${md(s)} – ${md(e)}`;
+  }
+  const monthLabel = (id) => { const d = parseYmd(id); return `${d.getFullYear()}년 ${d.getMonth() + 1}월`; };
+
+  // ---------- storage: shared db, or this browser when db is unavailable ----------
+  const LS = {
+    get(k) { try { return JSON.parse(localStorage.getItem("ft:" + k)); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem("ft:" + k, JSON.stringify(v)); } catch {} },
+  };
+  let db = null, uid = null;
+  // 각자 계정의 비공개 공간(data/users/<id>)에 저장: 같은 링크를 여러 집이 써도 섞이지 않음
+  const dbPath = (p) => `data/users/${uid}/${p.replace("/", "_")}`;
+  const listeners = {};
+  const store = {
+    watch(path, cb) {
+      if (db) return db.doc(dbPath(path)).onSnapshot((s) => cb(s.exists ? s.data() : null), () => {});
+      listeners[path] = cb; cb(LS.get(path));
+      return () => { delete listeners[path]; };
+    },
+    async get(path) {
+      if (db) { try { const s = await db.doc(dbPath(path)).get(); return s.exists ? s.data() : null; } catch { return null; } }
+      return LS.get(path);
+    },
+    async set(path, data) {
+      if (db) return db.doc(dbPath(path)).set(data);
+      LS.set(path, data); listeners[path]?.(data);
+    },
+  };
+
+  // ---------- state ----------
+  let weekId = ymd(defaultMonday());
+  let monthId = ym(parseYmd(weekId));
+  let week = null, month = null, settings = {};
+  const months = {}; // cache of month docs used by the week view
+  let unsubWeek = null, unsubMonth = null;
+  let sample = null, busy = false, booted = false;
+  let openRecipe = null; // slot key of the recipe shown under its day
+  const files = { lunch: [], mb: [] };
+
+  // ---------- tabs ----------
+  const TABS = ["week", "month", "prefs"];
+  function showTab(t) {
+    TABS.forEach((x) => { $("tab-" + x).setAttribute("aria-selected", String(x === t)); $("p-" + x).hidden = x !== t; });
+    try { localStorage.setItem("ft:tab", t); } catch {}
+  }
+  TABS.forEach((x) => { $("tab-" + x).onclick = () => showTab(x); });
+  try { const t = localStorage.getItem("ft:tab"); if (TABS.includes(t)) showTab(t); } catch {}
+
+  // ---------- settings (prefs + pantry) ----------
+  const PREF_IDS = ["adults", "kids", "kinderName", "extraName", "kidLikes", "kidDislikes", "dadLikes", "dadDislikes", "momLikes", "allergy", "cookMin", "extra", "pantry"];
+  function fillPrefs() {
+    PREF_IDS.forEach((k) => { const n = $(k); if (document.activeElement !== n) n.value = settings[k] ?? ""; });
+    DAYS.slice(0, 5).forEach((_, i) => { const c = $("xd" + i); if (c) c.checked = extraDays().includes(i); });
+    applyFamilyLabels();
+    renderSummary();
+  }
+  PREF_IDS.forEach((k) => $(k).addEventListener("change", async () => {
+    const v = $(k).value.trim();
+    if ((settings[k] ?? "") === v) return;
+    settings = { ...settings, [k]: v };
+    const msg = k === "pantry" ? $("pantrySaved") : $("prefsSaved");
+    try { await store.set("settings/family", settings); msg.textContent = "저장됨"; }
+    catch { msg.textContent = "저장하지 못했어요. 다시 입력해 주세요."; }
+    setTimeout(() => (msg.textContent = ""), 2000);
+    applyFamilyLabels(); renderWeekTab();
+  }));
+  const cookMin = () => Number(settings.cookMin) || 30;
+  const adults = () => Number(settings.adults) || 2;
+  const kidsText = () => settings.kids || "";
+  const kName = () => settings.kinderName || "유치원";
+  const xName = () => settings.extraName || "방과후 수업";
+  const extraDays = () => (settings.extraName && Array.isArray(settings.extraDays) ? settings.extraDays : []);
+  const xDaysLabel = () => extraDays().map((i) => DAYS[i]).join("·");
+  const familyShort = () => `어른 ${adults()} + ${kidsText() || "아이"}`;
+  const servesRule = () => `한 끼에 어른 ${adults()}명 + 아이(${kidsText() || "나이 정보 없음"}). 아이 몫은 나이에 맞게 어른의 약 0.3~0.7배로 잡아 한 끼 총량을 정하고, 재료가 남지 않게 딱 맞게.`;
+  function applyFamilyLabels() {
+    const chips = $("familyChips"); chips.replaceChildren();
+    chips.append(el("span", "chip", `어른 ${adults()}`));
+    if (kidsText()) chips.append(el("span", "chip kid", kidsText()));
+    chips.append(el("span", "chip", kName() + (settings.extraName ? ` · ${xName()} ${xDaysLabel()}` : "")));
+    document.querySelectorAll(".kName").forEach((n) => (n.textContent = kName()));
+    document.querySelectorAll(".xName").forEach((n) => (n.textContent = xName()));
+    document.querySelectorAll(".kLabel").forEach((n) => (n.textContent = (kidsText().split(/[ ,]/)[0]) || "아이"));
+    $("xDaysHint").textContent = xDaysLabel() || "있는 경우만";
+  }
+  // 방과후 간식 요일 체크박스
+  DAYS.slice(0, 5).forEach((d, i) => {
+    const lab = el("label", "chip"); const c = el("input"); c.type = "checkbox"; c.id = "xd" + i;
+    c.onchange = async () => {
+      const days = DAYS.slice(0, 5).map((_, j) => j).filter((j) => $("xd" + j).checked);
+      settings = { ...settings, extraDays: days };
+      try { await store.set("settings/family", settings); $("prefsSaved").textContent = "저장됨"; } catch { $("prefsSaved").textContent = "저장하지 못했어요."; }
+      setTimeout(() => ($("prefsSaved").textContent = ""), 2000);
+      applyFamilyLabels(); renderWeekTab(); renderMonth();
+    };
+    lab.append(c, " " + d); $("extraDaysBox").append(lab);
+  });
+
+  // ---------- meal slots ----------
+  const slotKey = (i, meal) => `${DAYS[i]}-${meal}`;
+  function defaultOn(i, meal) {
+    if (meal === "breakfast") return true;
+    if (meal === "snack") return i <= 4 && !extraDays().includes(i);  // 평일 중 방과후 간식이 없는 날
+    return i <= 4;                                       // 저녁 월–금
+  }
+  function isOn(i, meal) {
+    const k = slotKey(i, meal);
+    if (week?.off && k in week.off) return false;
+    if (week?.on?.[k]) return true;
+    return defaultOn(i, meal);
+  }
+  async function saveWeek(patch) {
+    week = { weekStart: weekId, ...(week || {}), ...patch, updatedAt: new Date().toISOString() };
+    renderWeekTab();
+    try { await store.set("weeks/" + weekId, week); } catch { setStatus("저장하지 못했어요. 다시 시도해 주세요.", true); }
+  }
+  function setOff(i, meal, note) {
+    const k = slotKey(i, meal);
+    const off = { ...(week?.off || {}), [k]: note }; const on = { ...(week?.on || {}) }; delete on[k];
+    const hadPlan = !!week?.days?.[i]?.[meal];
+    saveWeek({ off, on, ...(hadPlan ? { shoppingStale: true } : {}) });
+  }
+  function setOn(i, meal) {
+    const k = slotKey(i, meal);
+    const off = { ...(week?.off || {}) }; delete off[k];
+    const on = { ...(week?.on || {}) }; if (!defaultOn(i, meal)) on[k] = true; else delete on[k];
+    saveWeek({ off, on });
+  }
+
+  // ---------- kindergarten menu lookup ----------
+  function kinderFor(i) {
+    const date = ymd(weekDates(weekId)[i]);
+    const snap = week?.kinder?.find?.((x) => x.date === date);
+    const live = months[date.slice(0, 7)]?.menu?.[date];
+    return live || snap || null;
+  }
+  async function loadMonthsForWeek() {
+    const ids = [...new Set(weekDates(weekId).map((d) => ym(d)))];
+    await Promise.all(ids.map(async (id) => { if (!(id in months)) months[id] = await store.get("months/" + id); }));
+    renderWeekTab();
+  }
+
+  // ---------- week nav ----------
+  function openWeek(id) {
+    weekId = id;
+    $("weekLabel").textContent = weekLabel(id);
+    $("weekTitle").textContent = id === ymd(defaultMonday()) ? "이번 주" : "주간 식단";
+    unsubWeek?.(); week = null; renderWeekTab();
+    unsubWeek = store.watch("weeks/" + id, (data) => { week = data; renderWeekTab(); });
+    loadMonthsForWeek();
+  }
+  $("prevWeek").onclick = () => openWeek(ymd(addDays(parseYmd(weekId), -7)));
+  $("nextWeek").onclick = () => openWeek(ymd(addDays(parseYmd(weekId), 7)));
+
+  // ---------- week rendering ----------
+  function renderWeekTab() { renderSummary(); renderBanners(); renderWeek(); renderShop(); }
+
+  function renderSummary() {
+    const box = $("slotSummary"); if (!box) return; box.replaceChildren();
+    const count = (meal) => DAYS.filter((_, i) => isOn(i, meal)).length;
+    MEALS.forEach((m) => { const c = el("span", "chip"); c.append(`${m.l} `); c.append(el("b", null, String(count(m.k)))); box.append(c); });
+    const offs = Object.keys(week?.off || {}).length;
+    if (offs) { const c = el("span", "chip"); c.append("외식·빠짐 "); c.append(el("b", null, String(offs))); box.append(c); }
+    const t = el("span", "chip"); t.append("하루 요리 "); t.append(el("b", null, cookMin() + "분")); box.append(t);
+  }
+
+  function renderBanners() {
+    const b = $("banners"); b.replaceChildren();
+    if (booted && !settings.kids) {
+      const s0 = el("div", "banner example"); s0.append(el("span", null, "처음이시면 '우리 가족·취향' 탭에서 가족 구성과 유치원 이름부터 적어주세요."));
+      const go = el("button", "ghost", "가족 정보 적기"); go.onclick = () => showTab("prefs"); s0.append(go); b.append(s0);
+    }
+    if (booted && !db) b.append(el("div", "banner stale", "claude.ai에 로그인한 상태로 열어야 내 식단이 계정에 저장돼요. 지금은 이 기기에만 저장돼요."));
+    if (week?.example) b.append(el("div", "banner example", "예시 식단이에요. 유치원 식단표를 넣고 '이번 주 식단 짜기'를 누르면 우리 집 식단으로 바뀌어요."));
+    const missing = DAYS.slice(0, 5).filter((_, i) => !kinderFor(i)).length;
+    if (missing === 5 && !week?.example) {
+      const s = el("div", "banner note"); s.append(el("span", null, "이 주의 유치원 식단이 아직 없어요. 먼저 넣어두면 겹치는 메뉴를 피할 수 있어요."));
+      const btn = el("button", "ghost", "유치원 식단표 넣기"); btn.onclick = () => { openMonth(ym(parseYmd(weekId))); showTab("month"); };
+      s.append(btn); b.append(s);
+    }
+    if (week?.shoppingStale) {
+      const s = el("div", "banner stale"); s.append(el("span", null, "바뀐 끼니가 장보기 목록에 아직 반영되지 않았어요."));
+      const btn = el("button", "ghost", "장보기 목록 다시 만들기"); btn.onclick = rebuildShopping; btn.disabled = busy || !sample;
+      s.append(btn); b.append(s);
+    }
+    const noRecipe = missingRecipeKeys();
+    if (noRecipe.length && sample && !week?.example) {
+      const s = el("div", "banner note"); s.append(el("span", null, `레시피가 아직 없는 끼니가 ${noRecipe.length}개 있어요.`));
+      const btn = el("button", "ghost", "레시피 모두 만들기"); btn.onclick = () => makeRecipes(noRecipe); btn.disabled = busy;
+      s.append(btn); b.append(s);
+    }
+    if (week?.notes) b.append(el("div", "banner note", "준비 팁 · " + week.notes));
+  }
+
+  function planFor(key) {
+    const [d, meal] = key.split("-");
+    return week?.days?.find?.((x) => x.day === d)?.[meal] || null;
+  }
+  function missingRecipeKeys() {
+    if (!Array.isArray(week?.days)) return [];
+    const out = [];
+    DAYS.forEach((_, i) => MEALS.forEach((m) => {
+      const key = slotKey(i, m.k);
+      if (isOn(i, m.k) && planFor(key)?.menu && !week.recipes?.[key]) out.push(key);
+    }));
+    return out;
+  }
+
+  function recipePanel(key) {
+    const r = week.recipes[key], p = planFor(key) || {};
+    const [d, meal] = key.split("-");
+    const box = el("div", "recipe");
+    const head = el("div", "recipe-head");
+    const h = el("h3", null, `${d}요일 ${MEALS.find((m) => m.k === meal).l} · ${p.menu || ""}`);
+    const right = el("div", "acts");
+    right.append(el("span", "serves", `${familyShort()}${r.min ? ` · ${r.min}분` : ""}`));
+    const copy = el("button", "link", "레시피 복사"); copy.onclick = () => copyRecipe(key, copy);
+    const close = el("button", "link quiet", "닫기"); close.onclick = () => { openRecipe = null; renderWeek(); };
+    right.append(copy, close);
+    head.append(h, right); box.append(head);
+
+    const body = el("div", "recipe-body");
+    const left = el("div"); left.append(el("h4", null, "재료"));
+    const ul = el("ul", "ing");
+    (r.ingredients || []).forEach((it) => { const li = el("li"); li.append(el("span", null, it.name), el("span", null, it.qty || "")); ul.append(li); });
+    left.append(ul);
+    const rightCol = el("div"); rightCol.append(el("h4", null, "만드는 순서"));
+    const ol = el("ol", "steps"); (r.steps || []).forEach((s) => ol.append(el("li", null, s))); rightCol.append(ol);
+    body.append(left, rightCol); box.append(body);
+    if (r.kidTip) box.append(el("div", "kidtip", "아이 몫 · " + r.kidTip));
+    if (r.adultTip) box.append(el("div", "adulttip", "어른 몫 · " + r.adultTip));
+    return box;
+  }
+
+  async function copyRecipe(key, btn) {
+    const r = week.recipes[key], p = planFor(key) || {};
+    const lines = [`[${p.menu}] ${familyShort()}`, "", "■ 재료", ...(r.ingredients || []).map((x) => `- ${x.name} ${x.qty || ""}`.trim()), "", "■ 순서", ...(r.steps || []).map((s, n) => `${n + 1}. ${s}`)];
+    if (r.kidTip) lines.push("", "아이 몫: " + r.kidTip);
+    if (r.adultTip) lines.push("어른 몫: " + r.adultTip);
+    const text = lines.join("\n");
+    try { await navigator.clipboard.writeText(text); btn.textContent = "복사됨"; }
+    catch { const ta = el("textarea", "copybox"); ta.value = text; ta.id = "copy-" + key; btn.closest(".recipe").append(ta); ta.select(); btn.textContent = "아래 글을 복사하세요"; }
+    setTimeout(() => { btn.textContent = "레시피 복사"; }, 2500);
+  }
+
+  function renderWeek() {
+    const box = $("week"); box.replaceChildren();
+    const head = el("div", "week-head");
+    ["", "유치원에서 먹는 것", "아침", "간식", "저녁"].forEach((t) => head.append(el("div", null, t)));
+    box.append(head);
+    const dates = weekDates(weekId), todayStr = ymd(new Date());
+    DAYS.forEach((d, i) => {
+      const plan = week?.days?.find?.((x) => x.day === d) || {};
+      const row = el("div", "day" + (ymd(dates[i]) === todayStr ? " today" : ""));
+      const lab = el("div", "dlabel"); lab.append(el("span", "d", d), el("span", "date", md(dates[i])));
+      const tot = MEALS.reduce((s, m) => s + (isOn(i, m.k) && plan[m.k]?.min ? Number(plan[m.k].min) || 0 : 0), 0);
+      if (tot) lab.append(el("span", "tot", `요리 ${tot}분`));
+      row.append(lab);
+
+      const kc = el("div", "kcell");
+      const k = kinderFor(i);
+      if (i >= 5) kc.append(el("span", "muted", "등원 없음"));
+      else if (!k) kc.append(el("span", "muted", "식단 정보 없음"));
+      else {
+        const line = (tag, v) => { if (!v) return; const l = el("div"); l.append(el("span", "ktag", tag)); l.append(document.createTextNode(v)); kc.append(l); };
+        line("점심", k.lunch); line("간식", k.snack); line(xName(), k.mb);
+      }
+      row.append(kc);
+      MEALS.forEach((m) => row.append(mealCell(i, m, plan[m.k])));
+      if (plan.avoided) { const a = el("div", "avoid"); a.append(el("b", null, "겹침 피함 ")); a.append(document.createTextNode(plan.avoided)); row.append(a); }
+      if (openRecipe?.startsWith(d + "-") && week?.recipes?.[openRecipe]) row.append(recipePanel(openRecipe));
+      box.append(row);
+    });
+  }
+
+  function mealCell(i, m, plan) {
+    const k = slotKey(i, m.k);
+    const on = isOn(i, m.k);
+    const c = el("div", "meal" + (on ? "" : " off"));
+    c.append(el("span", "lab", m.l));
+    const acts = el("div", "acts");
+    if (!on) {
+      const note = week?.off?.[k];
+      if (note != null) {
+        c.append(el("span", "offtag", "빠짐"));
+        const inp = el("input", "offnote"); inp.type = "text"; inp.value = note; inp.id = "off-" + k; inp.setAttribute("aria-label", `${DAYS[i]} ${m.l} 메모`);
+        inp.placeholder = "외식, 할머니 댁 …";
+        inp.onchange = () => setOff(i, m.k, inp.value.trim());
+        c.append(inp);
+        const back = el("button", "link", "다시 넣기"); back.onclick = () => setOn(i, m.k); acts.append(back);
+      } else {
+        c.append(el("span", "placeholder", "안 함"));
+        const add = el("button", "link", "+ 넣기"); add.onclick = () => setOn(i, m.k); acts.append(add);
+      }
+      c.append(acts); return c;
+    }
+    if (plan?.menu) {
+      const t = el("span", "menu", plan.menu);
+      if (plan.min) t.append(el("span", "min", plan.min + "분"));
+      c.append(t);
+      if (plan.sides?.length) c.append(el("span", "sides", plan.sides.join(" · ")));
+      if (plan.tip) c.append(el("span", "tip", plan.tip));
+      if (week.recipes?.[k]) {
+        const r = el("button", "link" + (openRecipe === k ? " on" : ""), openRecipe === k ? "레시피 닫기" : "레시피");
+        r.onclick = () => { openRecipe = openRecipe === k ? null : k; renderWeek(); };
+        acts.append(r);
+      } else if (sample && !week.example) {
+        const r = el("button", "link", "레시피 만들기"); r.disabled = busy;
+        r.onclick = async () => { await makeRecipes([k]); if (week?.recipes?.[k]) { openRecipe = k; renderWeek(); } };
+        acts.append(r);
+      }
+      if (sample && !week.example) { const s = el("button", "link", "다른 메뉴로"); s.disabled = busy; s.onclick = () => swapMeal(i, m.k, s); acts.append(s); }
+    } else {
+      c.append(el("span", "placeholder", "식단 짜면 채워져요"));
+    }
+    const off = el("button", "link quiet", "외식·빼기"); off.onclick = () => setOff(i, m.k, "외식"); acts.append(off);
+    c.append(acts);
+    return c;
+  }
+
+  function renderShop() {
+    const box = $("shop"); box.replaceChildren();
+    const cats = week?.shopping;
+    if (!Array.isArray(cats) || !cats.length) { box.hidden = true; return; }
+    box.hidden = false;
+    const checked = week.checked || {};
+    const all = cats.flatMap((c) => (c.items || []).map((it) => c.category + "|" + it.name));
+    const done = all.filter((k) => checked[k]).length;
+
+    const head = el("div", "shop-head");
+    head.append(el("h2", null, "장보기 목록"));
+    const right = el("div", "progress");
+    const bar = el("div", "bar"); const fill = el("i"); fill.style.width = (all.length ? (done / all.length) * 100 : 0) + "%"; bar.append(fill);
+    right.append(bar, el("span", null, `${done} / ${all.length} 담음`));
+    const copy = el("button", "ghost", "카톡용 복사"); copy.onclick = () => copyList(copy); right.append(copy);
+    head.append(right); box.append(head);
+
+    if (week.usesPantry?.length) {
+      const p = el("p", "pantry-use"); p.append(el("b", null, "집에 있는 재료로 쓰는 것 ")); p.append(document.createTextNode(week.usesPantry.join(", "))); box.append(p);
+    }
+    const grid = el("div", "cats");
+    const rank = (c) => { const i = CATS.indexOf(c); return i < 0 ? 99 : i; };
+    [...cats].sort((a, b) => rank(a.category) - rank(b.category)).forEach((c) => {
+      if (!c.items?.length) return;
+      const col = el("div", "cat");
+      const h = el("h3", null, c.category); h.append(el("span", null, String(c.items.length))); col.append(h);
+      c.items.forEach((it) => {
+        const key = c.category + "|" + it.name;
+        const row = el("label", "item" + (checked[key] ? " done" : ""));
+        const cb = el("input"); cb.type = "checkbox"; cb.checked = !!checked[key];
+        cb.onchange = () => { const ch = { ...(week.checked || {}) }; if (cb.checked) ch[key] = true; else delete ch[key]; saveWeek({ checked: ch }); };
+        row.append(cb, el("span", "nm", it.name), el("span", "qty", it.qty || ""));
+        if (it.for) row.append(el("span", "for", it.for));
+        col.append(row);
+      });
+      grid.append(col);
+    });
+    box.append(grid);
+  }
+
+  async function copyList(btn) {
+    const lines = [`[${weekLabel(weekId)} 장보기]`];
+    (week.shopping || []).forEach((c) => {
+      const left = (c.items || []).filter((it) => !(week.checked || {})[c.category + "|" + it.name]);
+      if (!left.length) return;
+      lines.push("", `■ ${c.category}`);
+      left.forEach((it) => lines.push(`- ${it.name} ${it.qty || ""}`.trim()));
+    });
+    const text = lines.join("\n");
+    try { await navigator.clipboard.writeText(text); btn.textContent = "복사됨"; }
+    catch {
+      const ta = el("textarea", "copybox"); ta.value = text; ta.id = "copybox"; btn.closest(".shop-head").after(ta); ta.select();
+      btn.textContent = "아래 글을 길게 눌러 복사하세요";
+    }
+    setTimeout(() => { btn.textContent = "카톡용 복사"; }, 2500);
+  }
+
+  // ---------- month tab ----------
+  function openMonth(id) {
+    monthId = id;
+    $("monthLabel").textContent = monthLabel(id);
+    unsubMonth?.(); month = null; renderMonth();
+    unsubMonth = store.watch("months/" + id, (data) => {
+      month = data; months[id] = data;
+      ["lunchText", "mbText"].forEach((f) => { if (document.activeElement !== $(f)) $(f).value = data?.[f] || ""; });
+      renderMonth(); renderWeekTab();
+    });
+  }
+  const shiftMonth = (n) => { const d = parseYmd(monthId + "-01"); d.setMonth(d.getMonth() + n); openMonth(ym(d)); };
+  $("prevMonth").onclick = () => shiftMonth(-1);
+  $("nextMonth").onclick = () => shiftMonth(1);
+
+  function monthWeekdays(id) {
+    const out = []; const d = parseYmd(id + "-01");
+    while (ym(d) === id) { const w = (d.getDay() + 6) % 7; if (w < 5) out.push(new Date(d)); d.setDate(d.getDate() + 1); }
+    return out;
+  }
+  function renderMonth() {
+    const box = $("mtable"); box.replaceChildren();
+    const menu = month?.menu || {};
+    if (!Object.keys(menu).length) {
+      const e = el("div", "empty card");
+      e.append(el("h3", null, `${monthLabel(monthId)} 식단표가 아직 없어요`));
+      e.append(el("p", null, "위에 사진이나 글을 넣고 '식단표 읽기'를 누르면 날짜별 표가 여기에 만들어져요."));
+      box.append(e); return;
+    }
+    const wrap = el("div", "mtable-wrap"); const t = el("table", "mtable");
+    const thead = el("thead"); const hr = el("tr");
+    ["날짜", `${kName()} 점심`, `${kName()} 간식`, `${xName()} 간식`].forEach((h) => hr.append(el("th", null, h)));
+    thead.append(hr); t.append(thead);
+    const tb = el("tbody");
+    monthWeekdays(monthId).forEach((d) => {
+      const date = ymd(d), w = (d.getDay() + 6) % 7, r = menu[date] || {};
+      const tr = el("tr", w === 0 ? "wk" : "");
+      tr.append(el("td", "dt", `${md(d)} ${DAYS[w]}`));
+      [["lunch", ""], ["snack", ""], ["mb", "mb"]].forEach(([f, cls]) => {
+        const td = el("td", cls); const inp = el("input"); inp.type = "text"; inp.id = `m-${date}-${f}`; inp.value = r[f] || "";
+        inp.setAttribute("aria-label", `${md(d)} ${f}`);
+        if (f === "mb" && !extraDays().includes(w) && !r[f]) inp.placeholder = "—";
+        inp.onchange = () => saveCell(date, f, inp.value.trim());
+        td.append(inp); tr.append(td);
+      });
+      tb.append(tr);
+    });
+    t.append(tb); wrap.append(t); box.append(wrap);
+  }
+  async function saveCell(date, f, v) {
+    const menu = { ...(month?.menu || {}) }; menu[date] = { ...(menu[date] || {}), [f]: v };
+    month = { ...(month || {}), menu, updatedAt: new Date().toISOString() }; months[monthId] = month;
+    try { await store.set("months/" + monthId, month); mStatus("고친 내용을 저장했어요."); } catch { mStatus("저장하지 못했어요.", true); }
+  }
+  function mStatus(t, err) { const s = $("mStatus"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
+
+  // images
+  function setupDrop(kind) {
+    const drop = $(kind + "Drop"), input = $(kind + "Files");
+    input.addEventListener("change", () => { addFiles(kind, input.files); input.value = ""; });
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); addFiles(kind, e.dataTransfer.files); });
+  }
+  function addFiles(kind, list) { for (const f of list) if (f.type.startsWith("image/")) files[kind].push(f); renderThumbs(kind); }
+  function renderThumbs(kind) {
+    const box = $(kind + "Thumbs"); box.replaceChildren();
+    files[kind].forEach((f, i) => {
+      const t = el("div", "thumb"); const img = el("img"); img.alt = f.name; img.src = URL.createObjectURL(f);
+      const x = el("button", null, "×"); x.setAttribute("aria-label", "사진 빼기");
+      x.onclick = (e) => { e.preventDefault(); files[kind].splice(i, 1); renderThumbs(kind); };
+      t.append(img, x); box.append(t);
+    });
+  }
+  setupDrop("lunch"); setupDrop("mb");
+
+  async function extractMonth() {
+    if (!sample || busy) return;
+    const lunchText = $("lunchText").value.trim(), mbText = $("mbText").value.trim();
+    const images = [...files.lunch, ...files.mb];
+    if (!lunchText && !mbText && !images.length) { mStatus("식단표 사진이나 글을 넣어 주세요.", true); return; }
+    if (images.length) {
+      const lim = await sample.limits().catch(() => null);
+      if (!lim?.images) { mStatus("이 화면에서는 사진을 보낼 수 없어요. 식단을 글로 적어 주세요.", true); return; }
+      if (images.length > lim.images.maxCount) { mStatus(`사진은 한 번에 ${lim.images.maxCount}장까지 보낼 수 있어요.`, true); return; }
+    }
+    const [y, m] = monthId.split("-").map(Number);
+    let imgNote = "";
+    if (files.lunch.length) imgNote += `\n첨부 이미지 1~${files.lunch.length}번은 ${kName()} 식단표야.`;
+    if (files.mb.length) imgNote += `\n첨부 이미지 ${files.lunch.length + 1}~${files.lunch.length + files.mb.length}번은 ${xName()}(${xDaysLabel() || "방과후 수업"}) 간식표야.`;
+    const prompt = `${y}년 ${m}월 유치원 식단표를 날짜별로 정리해줘.
+[${kName()} 식단표 (글)]
+${lunchText || "(사진 참고)"}
+[${xName()} 간식표 (글)]
+${mbText || (files.mb.length ? "(사진 참고)" : "(없음)")}${imgNote}
+
+규칙:
+- ${y}년 ${m}월의 평일(월~금)만. 날짜는 YYYY-MM-DD.
+- lunch: ${kName()} 점심 메뉴를 쉼표로. 휴원일이면 "휴원".
+- snack: ${kName()} 오전·오후 간식(식단표에 있으면). 없으면 빈 문자열.
+- mb: ${xName()} 간식. ${xDaysLabel() ? `보통 ${xDaysLabel()}에만 있어.` : "따로 받은 간식표가 있을 때만."} 없으면 빈 문자열.
+- 표에 없는 날은 넣지 마. 읽기 어려운 글자는 가장 가능성 높은 메뉴명으로.
+JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","mb":""}]}`;
+    setBusy(true); mStatus("식단표를 읽는 중이에요…");
+    try {
+      const r = await sample.json(prompt, {
+        images: images.length ? images : undefined, modelTier: "complex", cache: false,
+        onText: ({ text }) => mStatus(`식단표를 읽는 중이에요… (${text.length.toLocaleString()}자)`),
+      });
+      if (!Array.isArray(r?.menu)) throw { code: "invalid_json" };
+      const menu = { ...(month?.menu || {}) };
+      let n = 0;
+      r.menu.forEach((x) => {
+        if (!x?.date || x.date.slice(0, 7) !== monthId) return;
+        const cur = menu[x.date] || {};
+        menu[x.date] = { lunch: x.lunch || cur.lunch || "", snack: x.snack || cur.snack || "", mb: x.mb || cur.mb || "" };
+        n++;
+      });
+      month = { lunchText, mbText, menu, updatedAt: new Date().toISOString() }; months[monthId] = month;
+      await store.set("months/" + monthId, month);
+      files.lunch = []; files.mb = []; renderThumbs("lunch"); renderThumbs("mb");
+      renderMonth(); renderWeekTab();
+      mStatus(`${n}일치 식단을 정리했어요. 틀린 칸은 표에서 바로 고치면 저장돼요.`);
+    } catch (e) { mStatus(errText(e), true); }
+    finally { setBusy(false); }
+  }
+  $("extract").onclick = extractMonth;
+
+  // ---------- Claude ----------
+  function setStatus(t, err) { const s = $("status"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
+  function setBusy(on) {
+    busy = on; $("generate").disabled = on || !sample; $("extract").disabled = on || !sample;
+    document.querySelectorAll(".meal .link, .banner.stale button").forEach((b) => (b.disabled = on));
+  }
+  function errText(e) {
+    const c = e?.code;
+    if (c === "not_granted") return "Claude 사용 권한이 꺼져 있어요. 페이지 메뉴의 권한 설정에서 허용해 주세요.";
+    if (c === "rate_limited") return "요청이 많아요. 잠시 후 다시 눌러 주세요.";
+    if (c === "invalid_json") return "답을 정리하지 못했어요. 한 번 더 눌러 주세요.";
+    if (c === "image_rejected") return "읽을 수 없는 사진이 있어요. JPG나 PNG로 다시 올려 주세요.";
+    if (c === "cancelled") return "취소했어요.";
+    return "만들지 못했어요. 다시 시도해 주세요." + (e?.message ? ` (${e.message})` : "");
+  }
+
+  function familyBlock() {
+    const s = settings;
+    return [
+      `[가족] 어른 ${adults()}명, 아이: ${kidsText() || "(정보 없음)"}. 다 같이 먹는 메뉴로 짜되 아이 몫은 나이에 맞게 싱겁고 맵지 않게. 어른 몫에 양념을 더하면 되는 경우 tip에 적어줘.`,
+      `[분량 기준] ${servesRule()}`,
+      `[아이가 좋아하는 음식·특성] ${s.kidLikes || "(정보 없음)"}`,
+      `[아이가 안 먹는 음식] ${s.kidDislikes || "(정보 없음)"}`,
+      `[배우자가 좋아하는 음식·특성] ${s.dadLikes || "(정보 없음)"}`,
+      `[배우자가 안 먹는 음식] ${s.dadDislikes || "(정보 없음)"}`,
+      `[요리하는 사람(나)이 좋아하는 음식] ${s.momLikes || "(정보 없음)"}`,
+      `[알레르기] ${s.allergy || "없음"}`,
+      `[하루 요리 시간] 아침·간식·저녁을 합쳐 하루 ${cookMin()}분 이내. 각 끼니의 min에 실제 조리 시간(분)을 숫자로.`,
+      `[집에 있는 재료 — 먼저 활용하고 장보기에서 빼기] ${s.pantry || "(정보 없음)"}`,
+      `[기타 요청] ${s.extra || "없음"}`,
+    ].join("\n");
+  }
+  const shopRules = () => `장보기 목록은 아래 '만들 끼니'에 필요한 것만, 이 분량 기준(${servesRule()})으로 끼니별로 합산해서, 한국 마트 단위(g, 개, 팩, 봉, 단, 모, 마리)로. 소금·간장·설탕·식용유·참기름·깨·다진마늘 같은 기본 양념은 빼고 특별한 소스만. 집에 있는 재료는 빼. 각 품목의 for에는 쓰는 끼니("화 저녁, 목 아침"처럼). 카테고리는 다음 중에서만: ${CATS.map((c) => `"${c}"`).join(", ")}.`;
+
+  function slotLines(withPlan) {
+    const dates = weekDates(weekId);
+    return DAYS.map((d, i) => {
+      const k = kinderFor(i);
+      const kin = i >= 5 ? "등원 없음" : k ? `유치원 점심: ${k.lunch || "?"}${k.snack ? ` / 유치원 간식: ${k.snack}` : ""}${k.mb ? ` / ${xName()} 간식: ${k.mb}` : ""}` : "유치원 식단 정보 없음";
+      const on = MEALS.filter((m) => isOn(i, m.k));
+      const off = MEALS.filter((m) => !isOn(i, m.k) && week?.off?.[slotKey(i, m.k)] != null).map((m) => `${m.l}(${week.off[slotKey(i, m.k)] || "빠짐"})`);
+      let line = `${d} ${md(dates[i])} — ${kin} | 만들 끼니: ${on.map((m) => m.l).join(", ") || "없음"}${off.length ? ` | 빠지는 끼니: ${off.join(", ")}` : ""}`;
+      if (withPlan) {
+        const p = week?.days?.find?.((x) => x.day === d) || {};
+        line += " | 식단: " + on.map((m) => `${m.l} ${p[m.k]?.menu || "?"}${p[m.k]?.sides?.length ? `(${p[m.k].sides.join(", ")})` : ""}`).join(" / ");
+      }
+      return line;
+    }).join("\n");
+  }
+
+  async function generate() {
+    if (!sample || busy) return;
+    const total = DAYS.reduce((s, _, i) => s + MEALS.filter((m) => isOn(i, m.k)).length, 0);
+    if (!total) { setStatus("만들 끼니가 없어요. 표에서 '+ 넣기'로 끼니를 추가해 주세요.", true); return; }
+    const prev = await store.get("weeks/" + ymd(addDays(parseYmd(weekId), -7)));
+    const prevMenus = prev && !prev.example && Array.isArray(prev.days)
+      ? prev.days.flatMap((d) => MEALS.map((m) => d[m.k]?.menu)).filter(Boolean).join(", ") : "";
+
+    const prompt = `너는 한국 가정의 주간 식단을 짜는 영양사야. ${weekLabel(weekId)} 한 주 식단과 장보기 목록을 만들어줘.
+
+${familyBlock()}
+[지난주에 먹은 메뉴 — 이번 주엔 반복 피하기] ${prevMenus || "(정보 없음)"}
+
+[요일별 유치원 메뉴와 만들 끼니]
+${slotLines(false)}
+
+규칙:
+1. 아이는 유치원에서 먹은 것과 비슷한 음식이 집에서 나오면 먹지 않으려고 해. 그날 집 끼니는 그날 유치원 점심·간식·방과후 간식과 주재료(닭·돼지·소·생선 종류·새우·두부·달걀 등), 요리 형태(카레, 볶음밥, 덮밥, 국수, 전, 머핀·빵, 같은 종류의 국·찌개 등), 맛 계열(간장조림, 토마토, 크림 등)이 겹치지 않게 해.
+2. 저녁은 다음 날 유치원 점심과도 겹치지 않게 해.
+3. 간식은 유치원 다녀온 뒤 먹는 집 간식이야. 그날 유치원 간식과 겹치지 않게, 5~10분 안에 준비되는 것으로.
+4. 아침·간식·저녁 조리 시간 합계가 하루 ${cookMin()}분을 넘지 않게. 평일 아침은 10~15분 이내. 주말에 미리 손질해 두면 좋은 건 notes에.
+5. '만들 끼니'에 있는 것만 짜고, 없는 끼니는 null.
+6. 한 주 동안 같은 메인 메뉴를 반복하지 말고 단백질을 골고루. 아이와 배우자가 좋아하는 것을 골고루 넣어.
+7. 집에 있는 재료를 먼저 쓰고, 재료를 여러 끼에 나눠 써서 남는 재료가 적게. usesPantry에는 집 재료 중 이번 주에 쓰는 것과 쓰는 끼니.
+8. avoided에는 그날(과 다음 날) 유치원 메뉴 중 무엇과 겹치지 않게 했는지 한 문장. 유치원 정보가 없는 날은 빈 문자열.
+9. ${shopRules()}
+10. sides는 반찬·국 0~3개, tip은 한 문장 이내(없으면 빈 문자열).
+
+JSON 하나로만 답해. 형식:
+{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"tip":"","min":10},"snack":null,"dinner":{"menu":"","sides":[""],"tip":"","min":20},"avoided":""}],
+ "shopping":[{"category":"채소·과일","items":[{"name":"","qty":"","for":""}]}],
+ "usesPantry":["감자 (화 저녁, 목 아침)"],
+ "notes":"주말에 미리 해두면 좋은 준비 1~2문장"}
+days는 월~일 7개.`;
+
+    let ok = false;
+    setBusy(true); setStatus("유치원 메뉴를 피해서 식단을 짜는 중이에요…");
+    try {
+      const res = await sample.json(prompt, {
+        modelTier: "complex", cache: false,
+        onText: ({ text }) => setStatus(`식단을 짜는 중이에요… (${text.length.toLocaleString()}자)`),
+      });
+      if (!Array.isArray(res?.days) || res.days.length < 7) throw { code: "invalid_json" };
+      const kinder = weekDates(weekId).slice(0, 5).map((d, i) => ({ date: ymd(d), ...(kinderFor(i) || {}) }));
+      await saveWeek({
+        example: false, days: res.days, shopping: res.shopping || [], usesPantry: res.usesPantry || [],
+        notes: res.notes || "", kinder, checked: {}, shoppingStale: false, recipes: {},
+      });
+      ok = true;
+    } catch (e) { setStatus(errText(e), true); }
+    finally { setBusy(false); }
+    if (ok && await makeRecipes(missingRecipeKeys())) setStatus("완성! 끼니마다 '레시피'를 눌러 보세요. 마음에 안 드는 끼니는 '다른 메뉴로'로 바꿀 수 있어요.");
+  }
+
+  // 레시피: 하루 단위로 나눠서 요청 (한 번에 너무 길어지지 않게)
+  async function makeRecipes(keys) {
+    if (!sample || busy || !keys.length) return false;
+    const byDay = {};
+    keys.forEach((k) => { const d = k.split("-")[0]; (byDay[d] ||= []).push(k); });
+    const dayList = Object.keys(byDay);
+    setBusy(true);
+    let done = 0;
+    try {
+      for (const d of dayList) {
+        setStatus(`레시피 쓰는 중이에요… (${done + 1}/${dayList.length}일)`);
+        const list = byDay[d].map((k) => {
+          const p = planFor(k); const l = MEALS.find((m) => m.k === k.split("-")[1]).l;
+          return `- key "${k}": ${d}요일 ${l} — ${p.menu}${p.sides?.length ? ` (곁들임: ${p.sides.join(", ")})` : ""}${p.min ? `, 목표 ${p.min}분` : ""}`;
+        }).join("\n");
+        const prompt = `아래 끼니들의 집밥 레시피를 써줘.
+${familyBlock()}
+[끼니]
+${list}
+
+규칙:
+- 분량: ${servesRule()} 재료 양은 이 분량에 맞춰 g, 개, 큰술, 작은술, 컵(200ml) 단위로 구체적으로.
+- 곁들임(반찬·국)도 함께 만드는 걸로 보고 재료와 순서에 포함해.
+- 목표 시간 안에 끝나게, 동시에 할 수 있는 일은 한 단계에 묶어. 순서는 3~7단계, 한 단계는 한두 문장.
+- kidTip: 아이 몫(나이 참고)을 언제 덜어내는지, 크기·간·식감 조절 한 문장.
+- adultTip: 어른 몫에 더하면 좋은 양념 한 문장(없으면 빈 문자열).
+- 소금·간장 같은 기본 양념도 재료에 양과 함께 적어.
+JSON 하나로만 답해: {"recipes":[{"key":"월-dinner","ingredients":[{"name":"","qty":""}],"steps":[""],"kidTip":"","adultTip":"","min":20}]}`;
+        const r = await sample.json(prompt, { modelTier: "default", cache: false });
+        const recipes = { ...(week?.recipes || {}) };
+        (r?.recipes || []).forEach((x) => { if (byDay[d].includes(x?.key) && x.steps?.length) recipes[x.key] = { ingredients: x.ingredients || [], steps: x.steps, kidTip: x.kidTip || "", adultTip: x.adultTip || "", min: x.min || null }; });
+        await saveWeek({ recipes });
+        done++;
+      }
+      return true;
+    } catch (e) {
+      setStatus(errText(e) + (done ? ` ${done}일치 레시피는 저장했어요. 나머지는 '레시피 모두 만들기'로 이어서 만들 수 있어요.` : ""), true);
+      return false;
+    } finally { setBusy(false); }
+  }
+
+  async function swapMeal(i, meal, btn) {
+    if (!sample || busy || !week) return;
+    const d = DAYS[i], label = MEALS.find((m) => m.k === meal).l;
+    const k = kinderFor(i) || {}, nk = i < 4 ? kinderFor(i + 1) || {} : {};
+    const others = week.days.flatMap((x) => MEALS.map((m) => x[m.k]?.menu)).filter(Boolean).join(", ");
+    const current = week.days.find((x) => x.day === d)?.[meal]?.menu || "";
+    const prompt = `한국 가정 식단에서 ${d}요일 ${label} 메뉴 하나만 다른 것으로 바꿔줘.
+${familyBlock()}
+[지금 메뉴 — 이것 말고] ${current}
+[이번 주 다른 끼니 — 겹치지 않게] ${others}
+[그날 유치원] 점심 ${k.lunch || "없음"} / 간식 ${k.snack || "없음"} / ${xName()} ${k.mb || "없음"}
+${meal === "dinner" ? `[다음 날 유치원 점심] ${nk.lunch || "없음"}` : meal === "snack" ? "유치원 다녀온 뒤 집 간식, 5~10분 준비." : "아침이니 10~15분 이내."}
+아이는 유치원에서 먹은 것과 주재료·요리 형태·맛이 비슷하면 안 먹으니 겹치지 않게 해. 새 메뉴에 필요한 재료 중 장보기 목록에 없을 법한 것은 tip에 적지 말고 그대로 둬.
+JSON 하나로만 답해: {"menu":"","sides":[""],"tip":"","min":10,"avoided":"무엇과 겹치지 않게 했는지 한 문장"}`;
+    let newMenu = null;
+    setBusy(true); btn.textContent = "바꾸는 중…";
+    try {
+      const m = await sample.json(prompt, { modelTier: "default", cache: false });
+      if (!m?.menu) throw { code: "invalid_json" };
+      const days = week.days.map((x) => x.day === d ? { ...x, [meal]: { menu: m.menu, sides: m.sides || [], tip: m.tip || "", min: m.min || null }, avoided: m.avoided || x.avoided } : x);
+      const recipes = { ...(week.recipes || {}) }; delete recipes[slotKey(i, meal)];
+      await saveWeek({ days, shoppingStale: true, recipes });
+      newMenu = m.menu;
+    } catch (e) { setStatus(errText(e), true); btn.textContent = "다른 메뉴로"; }
+    finally { setBusy(false); }
+    if (newMenu && await makeRecipes([slotKey(i, meal)])) setStatus(`${d}요일 ${label}을 '${newMenu}'(으)로 바꾸고 레시피도 새로 썼어요.`);
+  }
+
+  async function rebuildShopping() {
+    if (!sample || busy || !week?.days) return;
+    const prompt = `아래 한 주 식단에 필요한 장보기 목록을 만들어줘.
+${familyBlock()}
+[요일별 만들 끼니와 식단]
+${slotLines(true)}
+${shopRules()}
+JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":"","for":""}]}],"usesPantry":["감자 (화 저녁)"]}`;
+    setBusy(true); setStatus("장보기 목록을 다시 만드는 중이에요…");
+    try {
+      const r = await sample.json(prompt, { modelTier: "default", cache: false });
+      if (!Array.isArray(r?.shopping)) throw { code: "invalid_json" };
+      await saveWeek({ shopping: r.shopping, usesPantry: r.usesPantry || week.usesPantry || [], checked: {}, shoppingStale: false });
+      setStatus("장보기 목록을 새로 만들었어요.");
+    } catch (e) { setStatus(errText(e), true); }
+    finally { setBusy(false); }
+  }
+  $("generate").onclick = generate;
+
+  // ---------- boot ----------
+  openWeek(weekId);
+  openMonth(monthId);
+  fillPrefs();
+  $("generate").disabled = true; $("extract").disabled = true;
+  setStatus("연결하는 중…");
+  (async () => {
+    const use = (n) => (window.claude?.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
+    let user;
+    [db, sample, user] = await Promise.all([use("db"), use("sample"), use("user")]);
+    uid = user ? await user.id().catch(() => null) : null;
+    if (!uid) db = null;
+    settings = (await store.get("settings/family")) || {}; fillPrefs();
+    if (db) store.watch("settings/family", (v) => { settings = v || {}; fillPrefs(); });
+    for (const k in months) delete months[k];
+    openWeek(weekId); openMonth(monthId);
+    setBusy(false);
+    booted = true; renderBanners();
+    setStatus(sample ? "" : "이 계정에서는 식단 짜기를 쓸 수 없어요. 식단 보기와 장보기 체크는 그대로 쓸 수 있어요.");
+  })();
+})();
+</script>

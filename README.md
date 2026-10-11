@@ -26,3 +26,12 @@
 - `db`: `settings/family`(취향·집 재료), `months/YYYY-MM`(날짜별 유치원 메뉴), `weeks/YYYY-MM-DD`(월요일 기준 주간 식단·장보기·체크).
 
 Artifact 밖에서 열면 저장은 브라우저 localStorage로 대체되고, 식단 생성 버튼은 비활성화된다.
+
+## 다른 집용 버전 (`family/index.html`)
+
+해린이네 정보를 뺀 공유용 페이지. 가족 구성, 유치원 이름, 방과후 간식 수업과 요일을 '우리 가족·취향' 탭에서 입력한다.
+데이터는 보는 사람 계정의 비공개 공간(`data/users/<id>/`)에 저장되므로 링크 하나를 여러 집이 써도 섞이지 않는다
+(같은 집 배우자와도 공유되지 않음). AI 기능은 각자의 Claude 계정 사용량을 쓴다.
+
+`index.html`을 고친 뒤 `python3 scripts/make_family.py index.html family/index.html`로 다시 만들고,
+생성 후 덧붙인 수정(설정 변경 시 라벨 갱신)은 스크립트에 반영되어 있지 않으니 함께 확인한다.
