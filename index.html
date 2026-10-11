@@ -130,6 +130,21 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 .link:disabled { color: var(--muted); text-decoration: none; cursor: progress; }
 .avoid { grid-column: 2 / -1; padding: 0 12px 10px !important; font-size: 12px; color: var(--muted); }
 .avoid b { color: var(--kinder); }
+.link.on { font-weight: 700; }
+.recipe { grid-column: 1 / -1; border-top: 1px dashed var(--line); background: var(--bg); padding: 14px 16px !important; display: grid; gap: 12px; }
+.recipe-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; justify-content: space-between; }
+.recipe-head h3 { font-size: 19px; }
+.serves { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.recipe-body { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .recipe-body { grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr); } }
+.recipe h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .05em; color: var(--muted); }
+.ing { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.ing li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px dotted var(--line); }
+.ing li span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+.steps { margin: 0; padding-left: 1.4em; font-size: 14px; display: grid; gap: 6px; max-width: 65ch; }
+.steps li::marker { font-weight: 700; color: var(--accent); }
+.kidtip { font-size: 13px; background: var(--mark); color: var(--mark-ink); border-radius: 8px; padding: 8px 10px; }
+.adulttip { font-size: 13px; color: var(--muted); }
 @media (max-width: 760px) {
   .week-head { display: none; }
   .day { grid-template-columns: 1fr; }
@@ -352,6 +367,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   const months = {}; // cache of month docs used by the week view
   let unsubWeek = null, unsubMonth = null;
   let sample = null, busy = false, booted = false;
+  let openRecipe = null; // slot key of the recipe shown under its day
   const files = { lunch: [], mb: [] };
 
   // ---------- tabs ----------
@@ -464,7 +480,64 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
       const btn = el("button", "ghost", "장보기 목록 다시 만들기"); btn.onclick = rebuildShopping; btn.disabled = busy || !sample;
       s.append(btn); b.append(s);
     }
+    const noRecipe = missingRecipeKeys();
+    if (noRecipe.length && sample && !week?.example) {
+      const s = el("div", "banner note"); s.append(el("span", null, `레시피가 아직 없는 끼니가 ${noRecipe.length}개 있어요.`));
+      const btn = el("button", "ghost", "레시피 모두 만들기"); btn.onclick = () => makeRecipes(noRecipe); btn.disabled = busy;
+      s.append(btn); b.append(s);
+    }
     if (week?.notes) b.append(el("div", "banner note", "준비 팁 · " + week.notes));
+  }
+
+  function planFor(key) {
+    const [d, meal] = key.split("-");
+    return week?.days?.find?.((x) => x.day === d)?.[meal] || null;
+  }
+  function missingRecipeKeys() {
+    if (!Array.isArray(week?.days)) return [];
+    const out = [];
+    DAYS.forEach((_, i) => MEALS.forEach((m) => {
+      const key = slotKey(i, m.k);
+      if (isOn(i, m.k) && planFor(key)?.menu && !week.recipes?.[key]) out.push(key);
+    }));
+    return out;
+  }
+
+  function recipePanel(key) {
+    const r = week.recipes[key], p = planFor(key) || {};
+    const [d, meal] = key.split("-");
+    const box = el("div", "recipe");
+    const head = el("div", "recipe-head");
+    const h = el("h3", null, `${d}요일 ${MEALS.find((m) => m.k === meal).l} · ${p.menu || ""}`);
+    const right = el("div", "acts");
+    right.append(el("span", "serves", `어른 2 + 해린 1 (약 2.5인분)${r.min ? ` · ${r.min}분` : ""}`));
+    const copy = el("button", "link", "레시피 복사"); copy.onclick = () => copyRecipe(key, copy);
+    const close = el("button", "link quiet", "닫기"); close.onclick = () => { openRecipe = null; renderWeek(); };
+    right.append(copy, close);
+    head.append(h, right); box.append(head);
+
+    const body = el("div", "recipe-body");
+    const left = el("div"); left.append(el("h4", null, "재료"));
+    const ul = el("ul", "ing");
+    (r.ingredients || []).forEach((it) => { const li = el("li"); li.append(el("span", null, it.name), el("span", null, it.qty || "")); ul.append(li); });
+    left.append(ul);
+    const rightCol = el("div"); rightCol.append(el("h4", null, "만드는 순서"));
+    const ol = el("ol", "steps"); (r.steps || []).forEach((s) => ol.append(el("li", null, s))); rightCol.append(ol);
+    body.append(left, rightCol); box.append(body);
+    if (r.kidTip) box.append(el("div", "kidtip", "해린이 몫 · " + r.kidTip));
+    if (r.adultTip) box.append(el("div", "adulttip", "어른 몫 · " + r.adultTip));
+    return box;
+  }
+
+  async function copyRecipe(key, btn) {
+    const r = week.recipes[key], p = planFor(key) || {};
+    const lines = [`[${p.menu}] 어른 2 + 해린 1`, "", "■ 재료", ...(r.ingredients || []).map((x) => `- ${x.name} ${x.qty || ""}`.trim()), "", "■ 순서", ...(r.steps || []).map((s, n) => `${n + 1}. ${s}`)];
+    if (r.kidTip) lines.push("", "해린이 몫: " + r.kidTip);
+    if (r.adultTip) lines.push("어른 몫: " + r.adultTip);
+    const text = lines.join("\n");
+    try { await navigator.clipboard.writeText(text); btn.textContent = "복사됨"; }
+    catch { const ta = el("textarea", "copybox"); ta.value = text; ta.id = "copy-" + key; btn.closest(".recipe").append(ta); ta.select(); btn.textContent = "아래 글을 복사하세요"; }
+    setTimeout(() => { btn.textContent = "레시피 복사"; }, 2500);
   }
 
   function renderWeek() {
@@ -492,6 +565,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
       row.append(kc);
       MEALS.forEach((m) => row.append(mealCell(i, m, plan[m.k])));
       if (plan.avoided) { const a = el("div", "avoid"); a.append(el("b", null, "겹침 피함 ")); a.append(document.createTextNode(plan.avoided)); row.append(a); }
+      if (openRecipe?.startsWith(d + "-") && week?.recipes?.[openRecipe]) row.append(recipePanel(openRecipe));
       box.append(row);
     });
   }
@@ -523,6 +597,15 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
       c.append(t);
       if (plan.sides?.length) c.append(el("span", "sides", plan.sides.join(" · ")));
       if (plan.tip) c.append(el("span", "tip", plan.tip));
+      if (week.recipes?.[k]) {
+        const r = el("button", "link" + (openRecipe === k ? " on" : ""), openRecipe === k ? "레시피 닫기" : "레시피");
+        r.onclick = () => { openRecipe = openRecipe === k ? null : k; renderWeek(); };
+        acts.append(r);
+      } else if (sample && !week.example) {
+        const r = el("button", "link", "레시피 만들기"); r.disabled = busy;
+        r.onclick = async () => { await makeRecipes([k]); if (week?.recipes?.[k]) { openRecipe = k; renderWeek(); } };
+        acts.append(r);
+      }
       if (sample && !week.example) { const s = el("button", "link", "다른 메뉴로"); s.disabled = busy; s.onclick = () => swapMeal(i, m.k, s); acts.append(s); }
     } else {
       c.append(el("span", "placeholder", "식단 짜면 채워져요"));
@@ -737,6 +820,7 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
     const s = settings;
     return [
       "[가족] 엄마, 아빠, 해린(48개월·만 4세). 셋이 같이 먹는 메뉴로 짜되 해린이 몫은 싱겁고 맵지 않게. 어른 몫에 양념을 더하면 되는 경우 tip에 적어줘.",
+      `[분량 기준] ${SERVES}`,
       `[해린이가 좋아하는 음식·특성] ${s.haerinLikes || "(정보 없음)"}`,
       `[해린이가 안 먹는 음식] ${s.haerinDislikes || "(정보 없음)"}`,
       `[남편이 좋아하는 음식·특성] ${s.dadLikes || "(정보 없음)"}`,
@@ -748,7 +832,8 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
       `[기타 요청] ${s.extra || "없음"}`,
     ].join("\n");
   }
-  const SHOP_RULES = `장보기 목록은 아래 '만들 끼니'에 필요한 것만, 3인 가족(어른 2, 4세 아이 1) 분량으로, 한국 마트 단위(g, 개, 팩, 봉, 단, 모, 마리)로. 소금·간장·설탕·식용유·참기름·깨·다진마늘 같은 기본 양념은 빼고 특별한 소스만. 집에 있는 재료는 빼. 각 품목의 for에는 쓰는 끼니("화 저녁, 목 아침"처럼). 카테고리는 다음 중에서만: ${CATS.map((c) => `"${c}"`).join(", ")}.`;
+  const SERVES = "한 끼에 어른 2명 + 48개월 아이 1명. 아이는 어른의 약 절반을 먹으므로 한 끼 총량은 약 2.5인분(예: 밥 약 2.5공기, 고기·생선 주재료 약 250~300g). 남김 없이 딱 맞게.";
+  const SHOP_RULES = `장보기 목록은 아래 '만들 끼니'에 필요한 것만, 어른 2명 + 48개월 아이 1명(한 끼 약 2.5인분) 기준 분량을 끼니별로 합산해서, 한국 마트 단위(g, 개, 팩, 봉, 단, 모, 마리)로. 소금·간장·설탕·식용유·참기름·깨·다진마늘 같은 기본 양념은 빼고 특별한 소스만. 집에 있는 재료는 빼. 각 품목의 for에는 쓰는 끼니("화 저녁, 목 아침"처럼). 카테고리는 다음 중에서만: ${CATS.map((c) => `"${c}"`).join(", ")}.`;
 
   function slotLines(withPlan) {
     const dates = weekDates(weekId);
@@ -801,6 +886,7 @@ JSON 하나로만 답해. 형식:
  "notes":"주말에 미리 해두면 좋은 준비 1~2문장"}
 days는 월~일 7개.`;
 
+    let ok = false;
     setBusy(true); setStatus("유치원 메뉴를 피해서 식단을 짜는 중이에요…");
     try {
       const res = await sample.json(prompt, {
@@ -811,11 +897,53 @@ days는 월~일 7개.`;
       const kinder = weekDates(weekId).slice(0, 5).map((d, i) => ({ date: ymd(d), ...(kinderFor(i) || {}) }));
       await saveWeek({
         example: false, days: res.days, shopping: res.shopping || [], usesPantry: res.usesPantry || [],
-        notes: res.notes || "", kinder, checked: {}, shoppingStale: false,
+        notes: res.notes || "", kinder, checked: {}, shoppingStale: false, recipes: {},
       });
-      setStatus("완성! 마음에 안 드는 끼니는 '다른 메뉴로'를 눌러 바꿀 수 있어요.");
+      ok = true;
     } catch (e) { setStatus(errText(e), true); }
     finally { setBusy(false); }
+    if (ok && await makeRecipes(missingRecipeKeys())) setStatus("완성! 끼니마다 '레시피'를 눌러 보세요. 마음에 안 드는 끼니는 '다른 메뉴로'로 바꿀 수 있어요.");
+  }
+
+  // 레시피: 하루 단위로 나눠서 요청 (한 번에 너무 길어지지 않게)
+  async function makeRecipes(keys) {
+    if (!sample || busy || !keys.length) return false;
+    const byDay = {};
+    keys.forEach((k) => { const d = k.split("-")[0]; (byDay[d] ||= []).push(k); });
+    const dayList = Object.keys(byDay);
+    setBusy(true);
+    let done = 0;
+    try {
+      for (const d of dayList) {
+        setStatus(`레시피 쓰는 중이에요… (${done + 1}/${dayList.length}일)`);
+        const list = byDay[d].map((k) => {
+          const p = planFor(k); const l = MEALS.find((m) => m.k === k.split("-")[1]).l;
+          return `- key "${k}": ${d}요일 ${l} — ${p.menu}${p.sides?.length ? ` (곁들임: ${p.sides.join(", ")})` : ""}${p.min ? `, 목표 ${p.min}분` : ""}`;
+        }).join("\n");
+        const prompt = `아래 끼니들의 집밥 레시피를 써줘.
+${familyBlock()}
+[끼니]
+${list}
+
+규칙:
+- 분량: ${SERVES} 재료 양은 이 분량에 맞춰 g, 개, 큰술, 작은술, 컵(200ml) 단위로 구체적으로.
+- 곁들임(반찬·국)도 함께 만드는 걸로 보고 재료와 순서에 포함해.
+- 목표 시간 안에 끝나게, 동시에 할 수 있는 일은 한 단계에 묶어. 순서는 3~7단계, 한 단계는 한두 문장.
+- kidTip: 해린이(48개월) 몫을 언제 덜어내는지, 크기·간·식감 조절 한 문장.
+- adultTip: 어른 몫에 더하면 좋은 양념 한 문장(없으면 빈 문자열).
+- 소금·간장 같은 기본 양념도 재료에 양과 함께 적어.
+JSON 하나로만 답해: {"recipes":[{"key":"월-dinner","ingredients":[{"name":"","qty":""}],"steps":[""],"kidTip":"","adultTip":"","min":20}]}`;
+        const r = await sample.json(prompt, { modelTier: "default", cache: false });
+        const recipes = { ...(week?.recipes || {}) };
+        (r?.recipes || []).forEach((x) => { if (byDay[d].includes(x?.key) && x.steps?.length) recipes[x.key] = { ingredients: x.ingredients || [], steps: x.steps, kidTip: x.kidTip || "", adultTip: x.adultTip || "", min: x.min || null }; });
+        await saveWeek({ recipes });
+        done++;
+      }
+      return true;
+    } catch (e) {
+      setStatus(errText(e) + (done ? ` ${done}일치 레시피는 저장했어요. 나머지는 '레시피 모두 만들기'로 이어서 만들 수 있어요.` : ""), true);
+      return false;
+    } finally { setBusy(false); }
   }
 
   async function swapMeal(i, meal, btn) {
@@ -832,15 +960,18 @@ ${familyBlock()}
 ${meal === "dinner" ? `[다음 날 유치원 점심] ${nk.lunch || "없음"}` : meal === "snack" ? "유치원 다녀온 뒤 집 간식, 5~10분 준비." : "아침이니 10~15분 이내."}
 해린이는 유치원에서 먹은 것과 주재료·요리 형태·맛이 비슷하면 안 먹으니 겹치지 않게 해. 새 메뉴에 필요한 재료 중 장보기 목록에 없을 법한 것은 tip에 적지 말고 그대로 둬.
 JSON 하나로만 답해: {"menu":"","sides":[""],"tip":"","min":10,"avoided":"무엇과 겹치지 않게 했는지 한 문장"}`;
+    let newMenu = null;
     setBusy(true); btn.textContent = "바꾸는 중…";
     try {
       const m = await sample.json(prompt, { modelTier: "default", cache: false });
       if (!m?.menu) throw { code: "invalid_json" };
       const days = week.days.map((x) => x.day === d ? { ...x, [meal]: { menu: m.menu, sides: m.sides || [], tip: m.tip || "", min: m.min || null }, avoided: m.avoided || x.avoided } : x);
-      await saveWeek({ days, shoppingStale: true });
-      setStatus(`${d}요일 ${label}을 '${m.menu}'(으)로 바꿨어요.`);
+      const recipes = { ...(week.recipes || {}) }; delete recipes[slotKey(i, meal)];
+      await saveWeek({ days, shoppingStale: true, recipes });
+      newMenu = m.menu;
     } catch (e) { setStatus(errText(e), true); btn.textContent = "다른 메뉴로"; }
     finally { setBusy(false); }
+    if (newMenu && await makeRecipes([slotKey(i, meal)])) setStatus(`${d}요일 ${label}을 '${newMenu}'(으)로 바꾸고 레시피도 새로 썼어요.`);
   }
 
   async function rebuildShopping() {
