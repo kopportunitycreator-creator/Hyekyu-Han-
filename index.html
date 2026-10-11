@@ -190,6 +190,17 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 .prefs-grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
 @media (min-width: 760px) { .prefs-grid { grid-template-columns: 1fr 1fr; } }
 .who { font-family: var(--font-display); font-size: 17px; }
+.toggle { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.toggle input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
+.toggle .hint { display: block; }
+.found { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
+.found-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 8px; align-items: start; font-size: 14px; padding: 4px 0; border-bottom: 1px dotted var(--line); cursor: pointer; }
+.found-item:last-of-type { border-bottom: 0; }
+.found-item input { margin-top: 4px; accent-color: var(--accent); }
+.found-item .where { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.found-item .note { grid-column: 2 / -1; font-size: 12px; color: var(--warn); }
+.found-item.unsure .nm::after { content: " ?"; color: var(--warn); font-weight: 700; }
+.found-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 6px; }
 .credit { text-align: center; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: .02em; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
@@ -230,10 +241,19 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
           <textarea id="pantry" placeholder="예) 감자 3개, 양파 2개, 애호박 1개, 두부 1모, 냉동 새우, 달걀 6개, 김, 쌀"></textarea>
           <span class="saved" id="pantrySaved"></span>
         </div>
+        <div class="field">
+          <span class="lab">사진으로 재고 확인 <span class="hint">냉장고·냉동실·팬트리</span></span>
+          <label class="drop" id="fridgeDrop"><input type="file" id="fridgeFiles" accept="image/*" multiple><span>냉장고·냉동실 사진 올리기 (여러 장 가능)</span></label>
+          <div class="thumbs" id="fridgeThumbs"></div>
+          <div><button class="ghost" id="scanFridge">사진 속 재료 찾기</button></div>
+          <div class="status" id="fStatus" role="status" aria-live="polite"></div>
+          <div id="fridgeResult"></div>
+        </div>
       </div>
       <div class="card">
         <div class="card-head"><h3>이번 주 만들 끼니</h3><span class="hint">표에서 끼니를 눌러 외식·빼기</span></div>
         <div class="summary" id="slotSummary"></div>
+        <label class="toggle"><input type="checkbox" id="fridgeMode"><span>냉파 주간<span class="hint">집에 있는 재료를 최대한 다 쓰고, 장보기는 꼭 필요한 것만</span></span></label>
         <button class="primary" id="generate">이번 주 식단 짜기</button>
         <div class="status" id="status" role="status" aria-live="polite"></div>
       </div>
@@ -374,7 +394,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   let unsubWeek = null, unsubMonth = null;
   let sample = null, busy = false, booted = false;
   let openRecipe = null; // slot key of the recipe shown under its day
-  const files = { lunch: [], mb: [] };
+  const files = { lunch: [], mb: [], fridge: [] };
 
   // ---------- tabs ----------
   const TABS = ["week", "month", "prefs"];
@@ -469,6 +489,8 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
     const offs = Object.keys(week?.off || {}).length;
     if (offs) { const c = el("span", "chip"); c.append("외식·빠짐 "); c.append(el("b", null, String(offs))); box.append(c); }
     const t = el("span", "chip"); t.append("하루 요리 "); t.append(el("b", null, cookMin() + "분")); box.append(t);
+    $("fridgeMode").checked = !!week?.fridgeMode;
+    $("generate").textContent = week?.fridgeMode ? "냉파 식단 짜기" : "이번 주 식단 짜기";
   }
 
   function renderBanners() {
@@ -752,7 +774,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
       t.append(img, x); box.append(t);
     });
   }
-  setupDrop("lunch"); setupDrop("mb");
+  setupDrop("lunch"); setupDrop("mb"); setupDrop("fridge");
 
   async function extractMonth() {
     if (!sample || busy) return;
@@ -809,7 +831,7 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
   // ---------- Claude ----------
   function setStatus(t, err) { const s = $("status"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
   function setBusy(on) {
-    busy = on; $("generate").disabled = on || !sample; $("extract").disabled = on || !sample;
+    busy = on; $("generate").disabled = on || !sample; $("extract").disabled = on || !sample; $("scanFridge").disabled = on || !sample;
     document.querySelectorAll(".meal .link, .banner.stale button").forEach((b) => (b.disabled = on));
   }
   function errText(e) {
@@ -883,7 +905,7 @@ ${slotLines(false)}
 7. 집에 있는 재료를 먼저 쓰고, 재료를 여러 끼에 나눠 써서 남는 재료가 적게. usesPantry에는 집 재료 중 이번 주에 쓰는 것과 쓰는 끼니.
 8. avoided에는 그날(과 다음 날) 유치원 메뉴 중 무엇과 겹치지 않게 했는지 한 문장. 유치원 정보가 없는 날은 빈 문자열.
 9. ${SHOP_RULES}
-10. sides는 반찬·국 0~3개, tip은 한 문장 이내(없으면 빈 문자열).
+10. sides는 반찬·국 0~3개, tip은 한 문장 이내(없으면 빈 문자열).${fridgeRule() ? "\n11. " + fridgeRule() : ""}
 
 JSON 하나로만 답해. 형식:
 {"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"tip":"","min":10},"snack":null,"dinner":{"menu":"","sides":[""],"tip":"","min":20},"avoided":""}],
@@ -987,6 +1009,7 @@ ${familyBlock()}
 [요일별 만들 끼니와 식단]
 ${slotLines(true)}
 ${SHOP_RULES}
+${fridgeRule()}
 JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":"","for":""}]}],"usesPantry":["감자 (화 저녁)"]}`;
     setBusy(true); setStatus("장보기 목록을 다시 만드는 중이에요…");
     try {
@@ -998,6 +1021,73 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
     finally { setBusy(false); }
   }
   $("generate").onclick = generate;
+
+  // ---------- 냉파: 사진으로 재고 확인 ----------
+  const fridgeRule = () => week?.fridgeMode
+    ? "이번 주는 냉파(냉장고 파먹기) 주간이야. 집에 있는 재료를 최대한 다 쓰는 게 최우선이고, '(빨리)' 표시된 재료는 주 초반에 먼저 써. 장보기는 집 재료만으로 끼니가 안 되는 경우에 꼭 필요한 신선식품만 최소로. 냉동 재료는 전날 밤 냉장 해동처럼 해동 시점을 그 끼니 tip에 적어."
+    : "";
+  $("fridgeMode").onchange = () => saveWeek({ fridgeMode: $("fridgeMode").checked, ...(week?.days ? { shoppingStale: true } : {}) });
+
+  let found = [];
+  function fStatus(t, err) { const s = $("fStatus"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
+  function renderFound() {
+    const box = $("fridgeResult"); box.replaceChildren();
+    if (!found.length) return;
+    const wrap = el("div", "found");
+    found.forEach((it, n) => {
+      const row = el("label", "found-item" + (it.sure === false ? " unsure" : ""));
+      const cb = el("input"); cb.type = "checkbox"; cb.id = "found-" + n; cb.checked = it.keep !== false;
+      cb.onchange = () => { it.keep = cb.checked; };
+      row.append(cb, el("span", "nm", `${it.name}${it.qty ? " " + it.qty : ""}`), el("span", "where", it.where || ""));
+      if (it.note) row.append(el("span", "note", it.note));
+      wrap.append(row);
+    });
+    const acts = el("div", "found-acts");
+    const add = el("button", "primary", "체크한 재료를 집 재료에 넣기"); add.onclick = addFound;
+    const clear = el("button", "link quiet", "닫기"); clear.onclick = () => { found = []; renderFound(); };
+    acts.append(add, clear, el("span", "hint", "? 는 사진만으로 확실하지 않은 재료예요. 빼거나 넣은 뒤 고쳐주세요."));
+    wrap.append(acts); box.append(wrap);
+  }
+  function addFound() {
+    const cur = $("pantry").value.trim();
+    const have = cur.replace(/\s/g, "");
+    const add = found.filter((it) => it.keep !== false && !have.includes(it.name.replace(/\s/g, "")))
+      .map((it) => `${it.name}${it.qty ? " " + it.qty : ""}${it.where ? `(${it.where}${it.note ? "·빨리" : ""})` : it.note ? "(빨리)" : ""}`);
+    if (!add.length) { fStatus("새로 넣을 재료가 없어요. 이미 목록에 있어요."); return; }
+    $("pantry").value = (cur ? cur + ", " : "") + add.join(", ");
+    $("pantry").dispatchEvent(new Event("change"));
+    found = []; renderFound();
+    fStatus(`${add.length}가지 재료를 넣었어요. 냉파 주간을 켜고 식단을 짜면 이 재료부터 써요.`);
+  }
+  async function scanFridge() {
+    if (!sample || busy) return;
+    const images = files.fridge;
+    if (!images.length) { fStatus("냉장고·냉동실 사진을 먼저 올려 주세요.", true); return; }
+    const lim = await sample.limits().catch(() => null);
+    if (!lim?.images) { fStatus("이 화면에서는 사진을 보낼 수 없어요. 재료를 글로 적어 주세요.", true); return; }
+    if (images.length > lim.images.maxCount) { fStatus(`사진은 한 번에 ${lim.images.maxCount}장까지 보낼 수 있어요.`, true); return; }
+    const prompt = `첨부한 사진 ${images.length}장은 우리 집 냉장고·냉동실·팬트리 안을 찍은 거야. 보이는 식재료를 목록으로 정리해줘.
+- name: 한국 마트에서 부르는 재료 이름 (예: 닭다리살, 냉동 새우, 다진 소고기, 애호박).
+- qty: 대략적인 양 (예: 1봉, 300g 정도, 반 통, 3개).
+- where: "냉동", "냉장", "실온" 중 하나.
+- sure: 재료가 분명히 보이면 true, 포장·비닐만 보여 추측이면 false.
+- note: 시들었거나 오래돼 보여 빨리 써야 하면 짧게(예: "잎이 시들기 시작"), 아니면 빈 문자열.
+- 물·음료·술·약·영양제는 빼. 양념은 고추장·굴소스처럼 요리에 쓸 만한 것만.
+- 같은 재료는 하나로 합쳐.
+JSON 하나로만 답해: {"items":[{"name":"","qty":"","where":"냉동","sure":true,"note":""}]}`;
+    setBusy(true); $("scanFridge").disabled = true; fStatus("사진 속 재료를 찾는 중이에요…");
+    try {
+      const r = await sample.json(prompt, { images, modelTier: "complex", cache: false,
+        onText: ({ text }) => fStatus(`사진 속 재료를 찾는 중이에요… (${text.length.toLocaleString()}자)`) });
+      if (!Array.isArray(r?.items)) throw { code: "invalid_json" };
+      found = r.items.filter((x) => x?.name).map((x) => ({ ...x, keep: true }));
+      files.fridge = []; renderThumbs("fridge");
+      renderFound();
+      fStatus(found.length ? `${found.length}가지 재료를 찾았어요. 맞는지 확인하고 넣어 주세요.` : "사진에서 재료를 찾지 못했어요. 더 밝게, 가까이 찍어 주세요.");
+    } catch (e) { fStatus(errText(e), true); }
+    finally { setBusy(false); $("scanFridge").disabled = !sample; }
+  }
+  $("scanFridge").onclick = scanFridge;
 
   // ---------- boot ----------
   openWeek(weekId);
