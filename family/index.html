@@ -187,6 +187,21 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 .prefs-grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
 @media (min-width: 760px) { .prefs-grid { grid-template-columns: 1fr 1fr; } }
 .who { font-family: var(--font-display); font-size: 17px; }
+.wide { grid-column: 1 / -1; }
+.kids { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .kids { grid-template-columns: 1fr 1fr; } }
+.kid { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 10px; background: var(--bg); }
+.kid-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.kid-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.kid-row input[type="text"] { flex: 1 1 140px; min-width: 0; }
+.kid-row input[type="number"] { width: 70px; }
+select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; padding: 7px 8px; }
+.daychips { display: flex; flex-wrap: wrap; gap: 6px; }
+.daychips label { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 13px; cursor: pointer; }
+.picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.pick { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+.pick[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.kgroup { font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
 
@@ -200,7 +215,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 
   <nav class="tabs" role="tablist" aria-label="화면 선택">
     <button class="tab" role="tab" id="tab-week" aria-controls="p-week" aria-selected="true">이번 주 식단·장보기</button>
-    <button class="tab" role="tab" id="tab-month" aria-controls="p-month" aria-selected="false">유치원 식단표 (월별)</button>
+    <button class="tab" role="tab" id="tab-month" aria-controls="p-month" aria-selected="false">기관 식단표 (월별)</button>
     <button class="tab" role="tab" id="tab-prefs" aria-controls="p-prefs" aria-selected="false">우리 가족·취향</button>
   </nav>
 
@@ -239,15 +254,16 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   <!-- ============ MONTH ============ -->
   <section class="panel" id="p-month" role="tabpanel" aria-labelledby="tab-month" hidden>
     <div class="top">
-      <h2>유치원 식단표</h2>
+      <h2>기관 식단표</h2>
       <div class="nav" aria-label="달 선택">
         <button class="iconbtn" id="prevMonth" aria-label="이전 달">‹</button>
         <div class="label" id="monthLabel">—</div>
         <button class="iconbtn" id="nextMonth" aria-label="다음 달">›</button>
       </div>
     </div>
-    <p class="muted small">한 달에 한 번, 유치원·어린이집 식단표와 방과후 수업 간식표(있으면)를 사진이나 글로 넣고 '식단표 읽기'를 누르세요. 날짜별로 정리된 표는 직접 고칠 수 있고, 매주 식단을 짤 때 이 표를 보고 겹치는 메뉴를 피해요.</p>
-    <div class="row2">
+    <p class="muted small">한 달에 한 번, 아이가 다니는 유치원·어린이집 식단표와 방과후 수업 간식표(있으면)를 사진이나 글로 넣고 '식단표 읽기'를 누르세요. 아이들이 다른 곳에 다니면 아래에서 기관을 골라 각각 넣어주세요.</p>
+    <div class="picker" id="groupPicker" role="group" aria-label="기관 선택"></div>
+    <div class="row2" id="monthInputs">
       <div class="card">
         <div class="field">
           <label for="lunchText"><span class="kName">유치원</span> 식단표 <span class="hint">점심·간식</span></label>
@@ -256,7 +272,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
           <textarea id="lunchText" placeholder="사진 대신 글로 넣어도 돼요. 예) 10/12 현미밥, 닭곰탕, 애호박볶음 / 오후간식 찐감자"></textarea>
         </div>
       </div>
-      <div class="card">
+      <div class="card" id="mbCard">
         <div class="field">
           <label for="mbText"><span class="xName">방과후 수업</span> 간식표 <span class="hint" id="xDaysHint">있는 경우만</span></label>
           <label class="drop" id="mbDrop"><input type="file" id="mbFiles" accept="image/*" multiple><span>간식표 사진 올리기</span></label>
@@ -277,24 +293,14 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
     <h2>우리 가족·취향</h2>
     <p class="muted small">입력하면 바로 저장되고, 식단을 짤 때마다 반영돼요. 여기 적은 내용은 내 계정에만 저장되고 링크를 받은 다른 사람에게는 보이지 않아요.</p>
     <div class="prefs-grid">
-      <div class="card">
-        <span class="who">우리 가족</span>
-        <div class="field"><label for="adults">어른 수</label><div style="display:flex;align-items:center;gap:8px"><input type="number" id="adults" min="1" max="8" step="1" placeholder="2"> <span>명</span></div></div>
-        <div class="field"><label for="kids">아이 이름·나이 <span class="hint">여러 명이면 쉼표로</span></label><input type="text" id="kids" placeholder="예) 서윤 5살, 도윤 20개월"></div>
-        <div class="field"><label for="kinderName">유치원·어린이집 이름</label><input type="text" id="kinderName" placeholder="예) 햇살유치원"></div>
-      </div>
-      <div class="card">
-        <span class="who">방과후 수업 간식</span>
-        <p class="muted small">유치원 끝나고 간식을 주는 수업이 있으면 적어주세요. 그 요일엔 집 간식을 빼고, 그 간식과도 겹치지 않게 짜요.</p>
-        <div class="field"><label for="extraName">수업 이름</label><input type="text" id="extraName" placeholder="예) 영어 놀이반 (없으면 비워두세요)"></div>
-        <div class="field"><span class="lab">간식 주는 요일</span>
-          <div class="summary" id="extraDaysBox"></div>
+      <div class="card wide">
+        <div class="card-head">
+          <span class="who">우리 가족</span>
+          <div class="kid-row"><label for="adults">어른</label><input type="number" id="adults" min="1" max="8" step="1" placeholder="2"> <span>명</span></div>
         </div>
-      </div>
-      <div class="card">
-        <span class="who kLabel">아이</span>
-        <div class="field"><label for="kidLikes">좋아하는 음식·특성</label><textarea id="kidLikes" placeholder="예) 계란말이, 미역국, 새우. 부드러운 식감, 동그란 모양 좋아함. 비빔 싫어하고 따로 담아주면 잘 먹음"></textarea></div>
-        <div class="field"><label for="kidDislikes">안 먹는 음식</label><input type="text" id="kidDislikes" placeholder="예) 버섯, 가지, 매운 것"></div>
+        <p class="muted small">아이마다 나이, 다니는 곳, 방과후 간식 수업을 따로 적어주세요. 식단은 아이별로 그날 먹은 것과 겹치지 않게 짜고, 양과 아이 몫 손질법은 나이에 맞춰 정해요.</p>
+        <div class="kids" id="kidsBox"></div>
+        <div><button class="ghost" id="addKid">+ 아이 추가</button></div>
       </div>
       <div class="card">
         <span class="who">배우자</span>
@@ -392,60 +398,125 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   try { const t = localStorage.getItem("ft:tab"); if (TABS.includes(t)) showTab(t); } catch {}
 
   // ---------- settings (prefs + pantry) ----------
-  const PREF_IDS = ["adults", "kids", "kinderName", "extraName", "kidLikes", "kidDislikes", "dadLikes", "dadDislikes", "momLikes", "allergy", "cookMin", "extra", "pantry"];
+  const PREF_IDS = ["adults", "dadLikes", "dadDislikes", "momLikes", "allergy", "cookMin", "extra", "pantry"];
   function fillPrefs() {
     PREF_IDS.forEach((k) => { const n = $(k); if (document.activeElement !== n) n.value = settings[k] ?? ""; });
-    DAYS.slice(0, 5).forEach((_, i) => { const c = $("xd" + i); if (c) c.checked = extraDays().includes(i); });
+    if (!$("kidsBox").contains(document.activeElement)) renderKids();
     applyFamilyLabels();
+    renderGroupPicker(); fillMonthInputs(); renderMonth();
     renderSummary();
   }
-  PREF_IDS.forEach((k) => $(k).addEventListener("change", async () => {
+  function flash(msgEl, ok) {
+    msgEl.textContent = ok ? "저장됨" : "저장하지 못했어요. 다시 입력해 주세요.";
+    setTimeout(() => (msgEl.textContent = ""), 2000);
+  }
+  async function saveSettings(patch, msgEl = $("prefsSaved")) {
+    settings = { ...settings, ...patch };
+    try { await store.set("settings/family", settings); flash(msgEl, true); } catch { flash(msgEl, false); }
+    applyFamilyLabels(); renderWeekTab(); renderGroupPicker(); renderMonth();
+  }
+  PREF_IDS.forEach((k) => $(k).addEventListener("change", () => {
     const v = $(k).value.trim();
     if ((settings[k] ?? "") === v) return;
-    settings = { ...settings, [k]: v };
-    const msg = k === "pantry" ? $("pantrySaved") : $("prefsSaved");
-    try { await store.set("settings/family", settings); msg.textContent = "저장됨"; }
-    catch { msg.textContent = "저장하지 못했어요. 다시 입력해 주세요."; }
-    setTimeout(() => (msg.textContent = ""), 2000);
-    applyFamilyLabels(); renderWeekTab();
+    saveSettings({ [k]: v }, k === "pantry" ? $("pantrySaved") : $("prefsSaved"));
   }));
   const cookMin = () => Number(settings.cookMin) || 30;
   const adults = () => Number(settings.adults) || 2;
-  const kidsText = () => settings.kids || "";
-  const kName = () => settings.kinderName || "유치원";
-  const xName = () => settings.extraName || "방과후 수업";
-  const extraDays = () => (settings.extraName && Array.isArray(settings.extraDays) ? settings.extraDays : []);
-  const xDaysLabel = () => extraDays().map((i) => DAYS[i]).join("·");
-  const familyShort = () => `어른 ${adults()} + ${kidsText() || "아이"}`;
-  const servesRule = () => `한 끼에 어른 ${adults()}명 + 아이(${kidsText() || "나이 정보 없음"}). 아이 몫은 나이에 맞게 어른의 약 0.3~0.7배로 잡아 한 끼 총량을 정하고, 재료가 남지 않게 딱 맞게.`;
+
+  // ---------- children ----------
+  // settings.children: [{id, name, age, unit("개월"|"살"), school, extra, extraDays:[0..4], likes, dislikes}]
+  const kids = () => (Array.isArray(settings.children) ? settings.children : []);
+  const kidName = (c) => c.name || "아이";
+  const ageLabel = (c) => (c.age ? `${c.age}${c.unit || "살"}` : "나이 미입력");
+  const hasExtra = (c) => !!(c.school && c.extra && c.extraDays?.length);
+  const kidsDesc = () => kids().map((c) => `${kidName(c)}(${ageLabel(c)}, ${c.school ? `${c.school} 다님` : "가정보육"}${hasExtra(c) ? `, ${c.extra} ${c.extraDays.map((i) => DAYS[i]).join("·")}` : ""})`).join(", ");
+  const familyShort = () => `어른 ${adults()}${kids().length ? " + " + kids().map((c) => `${kidName(c)} ${ageLabel(c)}`).join(", ") : ""}`;
+  const servesRule = () => `한 끼에 어른 ${adults()}명${kids().length ? ` + 아이 ${kids().length}명(${kids().map((c) => `${kidName(c)} ${ageLabel(c)}`).join(", ")})` : ""}. 아이 몫은 나이별로 어른 대비 12~24개월 약 0.3배, 2~3살 약 0.4배, 4~6살 약 0.5배, 7살 이상 약 0.7배로 잡아 한 끼 총량을 정하고, 재료가 남지 않게 딱 맞게.`;
+  // 같은 기관 + 같은 방과후 수업이면 식단표를 함께 씀
+  function groups() {
+    const map = new Map();
+    kids().forEach((c) => {
+      if (!c.school) return;
+      const extra = hasExtra(c) ? c.extra : "";
+      const key = `${c.school}|${extra}`;
+      if (!map.has(key)) map.set(key, { key, school: c.school, extra, extraDays: hasExtra(c) ? c.extraDays : [], names: [] });
+      map.get(key).names.push(kidName(c));
+    });
+    return [...map.values()];
+  }
+  const groupLabel = (g) => `${g.names.join("·")} · ${g.school}${g.extra ? ` + ${g.extra}` : ""}`;
+
   function applyFamilyLabels() {
     const chips = $("familyChips"); chips.replaceChildren();
     chips.append(el("span", "chip", `어른 ${adults()}`));
-    if (kidsText()) chips.append(el("span", "chip kid", kidsText()));
-    chips.append(el("span", "chip", kName() + (settings.extraName ? ` · ${xName()} ${xDaysLabel()}` : "")));
-    document.querySelectorAll(".kName").forEach((n) => (n.textContent = kName()));
-    document.querySelectorAll(".xName").forEach((n) => (n.textContent = xName()));
-    document.querySelectorAll(".kLabel").forEach((n) => (n.textContent = (kidsText().split(/[ ,]/)[0]) || "아이"));
-    $("xDaysHint").textContent = xDaysLabel() || "있는 경우만";
+    kids().forEach((c) => chips.append(el("span", "chip kid", `${kidName(c)} ${ageLabel(c)}`)));
+    [...new Set(kids().map((c) => c.school).filter(Boolean))].forEach((sc) => chips.append(el("span", "chip", sc)));
   }
-  // 방과후 간식 요일 체크박스
-  DAYS.slice(0, 5).forEach((d, i) => {
-    const lab = el("label", "chip"); const c = el("input"); c.type = "checkbox"; c.id = "xd" + i;
-    c.onchange = async () => {
-      const days = DAYS.slice(0, 5).map((_, j) => j).filter((j) => $("xd" + j).checked);
-      settings = { ...settings, extraDays: days };
-      try { await store.set("settings/family", settings); $("prefsSaved").textContent = "저장됨"; } catch { $("prefsSaved").textContent = "저장하지 못했어요."; }
-      setTimeout(() => ($("prefsSaved").textContent = ""), 2000);
-      applyFamilyLabels(); renderWeekTab(); renderMonth();
-    };
-    lab.append(c, " " + d); $("extraDaysBox").append(lab);
-  });
+
+  const newId = () => Math.random().toString(36).slice(2, 8);
+  function saveKids(list) { saveSettings({ children: list }); }
+  function updateKid(id, patch) { saveKids(kids().map((c) => (c.id === id ? { ...c, ...patch } : c))); }
+  $("addKid").onclick = () => {
+    const list = [...kids(), { id: newId(), name: "", age: "", unit: "살", school: "", extra: "", extraDays: [], likes: "", dislikes: "" }];
+    settings = { ...settings, children: list }; renderKids();
+    $(`k-${list[list.length - 1].id}-name`)?.focus();
+    saveKids(list);
+  };
+  const removing = new Set();
+  function renderKids() {
+    const box = $("kidsBox"); box.replaceChildren();
+    if (!kids().length) { box.append(el("p", "muted small", "아직 아이 정보가 없어요. '+ 아이 추가'를 눌러 주세요.")); return; }
+    kids().forEach((c, n) => {
+      const card = el("div", "kid");
+      const head = el("div", "kid-head");
+      head.append(el("span", "who", c.name || `아이 ${n + 1}`));
+      const del = el("button", "link quiet", removing.has(c.id) ? "정말 삭제할까요? 한 번 더 누르세요" : "삭제");
+      del.onclick = () => {
+        if (!removing.has(c.id)) { removing.add(c.id); renderKids(); return; }
+        removing.delete(c.id); saveKids(kids().filter((x) => x.id !== c.id)); renderKids();
+      };
+      head.append(del); card.append(head);
+
+      const input = (field, ph, type = "text") => {
+        const i = el("input"); i.type = type; i.id = `k-${c.id}-${field}`; i.value = c[field] ?? ""; i.placeholder = ph;
+        i.onchange = () => updateKid(c.id, { [field]: type === "number" ? i.value : i.value.trim() });
+        return i;
+      };
+      const field = (label, ...nodes) => { const f = el("div", "field"); const l = el("span", "lab", label); const r = el("div", "kid-row"); r.append(...nodes); f.append(l, r); return f; };
+
+      const age = input("age", "5", "number"); age.min = "0"; age.max = "216"; age.setAttribute("aria-label", "나이");
+      const unit = el("select"); unit.id = `k-${c.id}-unit`; unit.setAttribute("aria-label", "나이 단위");
+      ["살", "개월"].forEach((u) => { const o = el("option", null, u); o.value = u; if ((c.unit || "살") === u) o.selected = true; unit.append(o); });
+      unit.onchange = () => updateKid(c.id, { unit: unit.value });
+      const nm = input("name", "이름"); nm.setAttribute("aria-label", "이름");
+      card.append(field("이름 · 나이", nm, age, unit));
+      const sc = input("school", "예) 햇살유치원 (가정보육이면 비워두세요)"); sc.setAttribute("aria-label", "다니는 곳");
+      card.append(field("다니는 곳", sc));
+      const ex = input("extra", "예) 영어 놀이반 (없으면 비워두세요)"); ex.setAttribute("aria-label", "방과후 간식 수업");
+      const days = el("div", "daychips");
+      DAYS.slice(0, 5).forEach((d, i) => {
+        const lab = el("label"); const cb = el("input"); cb.type = "checkbox"; cb.id = `k-${c.id}-d${i}`;
+        cb.checked = (c.extraDays || []).includes(i);
+        cb.onchange = () => {
+          const set = new Set(kids().find((x) => x.id === c.id)?.extraDays || []); cb.checked ? set.add(i) : set.delete(i);
+          updateKid(c.id, { extraDays: [...set].sort() });
+        };
+        lab.append(cb, d); days.append(lab);
+      });
+      card.append(field("방과후 간식 수업 · 요일", ex), days);
+      const lk = input("likes", "예) 계란말이, 새우. 부드러운 식감 좋아함"); lk.setAttribute("aria-label", "좋아하는 음식");
+      card.append(field("좋아하는 음식·특성", lk));
+      const dl = input("dislikes", "예) 버섯, 매운 것"); dl.setAttribute("aria-label", "안 먹는 음식");
+      card.append(field("안 먹는 음식", dl));
+      box.append(card);
+    });
+  }
 
   // ---------- meal slots ----------
   const slotKey = (i, meal) => `${DAYS[i]}-${meal}`;
   function defaultOn(i, meal) {
     if (meal === "breakfast") return true;
-    if (meal === "snack") return i <= 4 && !extraDays().includes(i);  // 평일 중 방과후 간식이 없는 날
+    if (meal === "snack") return i <= 4 && (!kids().length || kids().some((c) => !(hasExtra(c) && c.extraDays.includes(i))));  // 평일, 방과후 간식 없는 아이가 있는 날
     return i <= 4;                                       // 저녁 월–금
   }
   function isOn(i, meal) {
@@ -473,11 +544,16 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   }
 
   // ---------- kindergarten menu lookup ----------
+  // 그날 아이들이 기관에서 먹는 것: [{label, names, school, extra, lunch, snack, mb}]
   function kinderFor(i) {
     const date = ymd(weekDates(weekId)[i]);
-    const snap = week?.kinder?.find?.((x) => x.date === date);
-    const live = months[date.slice(0, 7)]?.menu?.[date];
-    return live || snap || null;
+    const mdoc = months[date.slice(0, 7)];
+    const live = groups().map((g) => {
+      const r = mdoc?.groups?.[g.key]?.menu?.[date];
+      return r && (r.lunch || r.snack || r.mb) ? { label: groupLabel(g), names: g.names, school: g.school, extra: g.extra, ...r } : null;
+    }).filter(Boolean);
+    if (live.length) return live;
+    return week?.kinder?.find?.((x) => x.date === date)?.items || [];
   }
   async function loadMonthsForWeek() {
     const ids = [...new Set(weekDates(weekId).map((d) => ym(d)))];
@@ -511,16 +587,16 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 
   function renderBanners() {
     const b = $("banners"); b.replaceChildren();
-    if (booted && !settings.kids) {
-      const s0 = el("div", "banner example"); s0.append(el("span", null, "처음이시면 '우리 가족·취향' 탭에서 가족 구성과 유치원 이름부터 적어주세요."));
+    if (booted && !kids().length) {
+      const s0 = el("div", "banner example"); s0.append(el("span", null, "처음이시면 '우리 가족·취향' 탭에서 아이별 나이와 다니는 곳부터 적어주세요."));
       const go = el("button", "ghost", "가족 정보 적기"); go.onclick = () => showTab("prefs"); s0.append(go); b.append(s0);
     }
     if (booted && !db) b.append(el("div", "banner stale", "claude.ai에 로그인한 상태로 열어야 내 식단이 계정에 저장돼요. 지금은 이 기기에만 저장돼요."));
     if (week?.example) b.append(el("div", "banner example", "예시 식단이에요. 유치원 식단표를 넣고 '이번 주 식단 짜기'를 누르면 우리 집 식단으로 바뀌어요."));
-    const missing = DAYS.slice(0, 5).filter((_, i) => !kinderFor(i)).length;
-    if (missing === 5 && !week?.example) {
-      const s = el("div", "banner note"); s.append(el("span", null, "이 주의 유치원 식단이 아직 없어요. 먼저 넣어두면 겹치는 메뉴를 피할 수 있어요."));
-      const btn = el("button", "ghost", "유치원 식단표 넣기"); btn.onclick = () => { openMonth(ym(parseYmd(weekId))); showTab("month"); };
+    const missing = DAYS.slice(0, 5).filter((_, i) => !kinderFor(i).length).length;
+    if (groups().length && missing === 5 && !week?.example) {
+      const s = el("div", "banner note"); s.append(el("span", null, "이 주의 기관 식단이 아직 없어요. 먼저 넣어두면 겹치는 메뉴를 피할 수 있어요."));
+      const btn = el("button", "ghost", "기관 식단표 넣기"); btn.onclick = () => { openMonth(ym(parseYmd(weekId))); showTab("month"); };
       s.append(btn); b.append(s);
     }
     if (week?.shoppingStale) {
@@ -591,7 +667,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   function renderWeek() {
     const box = $("week"); box.replaceChildren();
     const head = el("div", "week-head");
-    ["", "유치원에서 먹는 것", "아침", "간식", "저녁"].forEach((t) => head.append(el("div", null, t)));
+    ["", "기관에서 먹는 것", "아침", "간식", "저녁"].forEach((t) => head.append(el("div", null, t)));
     box.append(head);
     const dates = weekDates(weekId), todayStr = ymd(new Date());
     DAYS.forEach((d, i) => {
@@ -603,13 +679,15 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
       row.append(lab);
 
       const kc = el("div", "kcell");
-      const k = kinderFor(i);
+      const ks = kinderFor(i);
       if (i >= 5) kc.append(el("span", "muted", "등원 없음"));
-      else if (!k) kc.append(el("span", "muted", "식단 정보 없음"));
-      else {
+      else if (!groups().length) kc.append(el("span", "muted", "가정보육"));
+      else if (!ks.length) kc.append(el("span", "muted", "식단 정보 없음"));
+      else ks.forEach((k) => {
+        if (ks.length > 1 || groups().length > 1) kc.append(el("div", "kgroup", k.names.join("·")));
         const line = (tag, v) => { if (!v) return; const l = el("div"); l.append(el("span", "ktag", tag)); l.append(document.createTextNode(v)); kc.append(l); };
-        line("점심", k.lunch); line("간식", k.snack); line(xName(), k.mb);
-      }
+        line("점심", k.lunch); line("간식", k.snack); line(k.extra || "방과후", k.mb);
+      });
       row.append(kc);
       MEALS.forEach((m) => row.append(mealCell(i, m, plan[m.k])));
       if (plan.avoided) { const a = el("div", "avoid"); a.append(el("b", null, "겹침 피함 ")); a.append(document.createTextNode(plan.avoided)); row.append(a); }
@@ -721,14 +799,36 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   }
 
   // ---------- month tab ----------
+  // months/<YYYY-MM>: { groups: { "<기관>|<방과후>": { lunchText, mbText, menu: { date: {lunch, snack, mb} } } } }
+  let gKey = null;
+  const curGroup = () => groups().find((g) => g.key === gKey) || groups()[0] || null;
+  const gData = (g) => (g && month?.groups?.[g.key]) || {};
+  function fillMonthInputs() {
+    const d = gData(curGroup());
+    ["lunchText", "mbText"].forEach((f) => { if (document.activeElement !== $(f)) $(f).value = d[f] || ""; });
+  }
+  function renderGroupPicker() {
+    const box = $("groupPicker"); box.replaceChildren();
+    const gs = groups(), g = curGroup();
+    $("monthInputs").hidden = !g; $("extract").hidden = !g;
+    if (!g) return;
+    if (gs.length > 1) gs.forEach((x) => {
+      const b = el("button", "pick", groupLabel(x)); b.setAttribute("aria-pressed", String(x.key === g.key));
+      b.onclick = () => { gKey = x.key; files.lunch = []; files.mb = []; renderThumbs("lunch"); renderThumbs("mb"); renderGroupPicker(); fillMonthInputs(); renderMonth(); };
+      box.append(b);
+    });
+    document.querySelectorAll(".kName").forEach((n) => (n.textContent = g.school));
+    document.querySelectorAll(".xName").forEach((n) => (n.textContent = g.extra || "방과후 수업"));
+    $("xDaysHint").textContent = g.extra ? g.extraDays.map((i) => DAYS[i]).join("·") : "";
+    $("mbCard").hidden = !g.extra;
+  }
   function openMonth(id) {
     monthId = id;
     $("monthLabel").textContent = monthLabel(id);
     unsubMonth?.(); month = null; renderMonth();
     unsubMonth = store.watch("months/" + id, (data) => {
       month = data; months[id] = data;
-      ["lunchText", "mbText"].forEach((f) => { if (document.activeElement !== $(f)) $(f).value = data?.[f] || ""; });
-      renderMonth(); renderWeekTab();
+      fillMonthInputs(); renderMonth(); renderWeekTab();
     });
   }
   const shiftMonth = (n) => { const d = parseYmd(monthId + "-01"); d.setMonth(d.getMonth() + n); openMonth(ym(d)); };
@@ -742,37 +842,52 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   }
   function renderMonth() {
     const box = $("mtable"); box.replaceChildren();
-    const menu = month?.menu || {};
+    const g = curGroup();
+    if (!g) {
+      const e = el("div", "empty card");
+      e.append(el("h3", null, "아이가 다니는 곳을 먼저 적어주세요"));
+      e.append(el("p", null, "'우리 가족·취향' 탭에서 아이별로 다니는 유치원·어린이집을 적으면 여기서 식단표를 넣을 수 있어요. 가정보육만 한다면 이 탭은 쓰지 않아도 돼요."));
+      const go = el("button", "ghost", "가족 정보 적기"); go.onclick = () => showTab("prefs"); e.append(go);
+      box.append(e); return;
+    }
+    const menu = gData(g).menu || {};
     if (!Object.keys(menu).length) {
       const e = el("div", "empty card");
-      e.append(el("h3", null, `${monthLabel(monthId)} 식단표가 아직 없어요`));
+      e.append(el("h3", null, `${monthLabel(monthId)} ${g.school} 식단표가 아직 없어요`));
       e.append(el("p", null, "위에 사진이나 글을 넣고 '식단표 읽기'를 누르면 날짜별 표가 여기에 만들어져요."));
       box.append(e); return;
     }
     const wrap = el("div", "mtable-wrap"); const t = el("table", "mtable");
     const thead = el("thead"); const hr = el("tr");
-    ["날짜", `${kName()} 점심`, `${kName()} 간식`, `${xName()} 간식`].forEach((h) => hr.append(el("th", null, h)));
+    const cols = [["lunch", `${g.school} 점심`, ""], ["snack", `${g.school} 간식`, ""]];
+    if (g.extra) cols.push(["mb", `${g.extra} 간식`, "mb"]);
+    ["날짜", ...cols.map((c) => c[1])].forEach((h) => hr.append(el("th", null, h)));
     thead.append(hr); t.append(thead);
     const tb = el("tbody");
     monthWeekdays(monthId).forEach((d) => {
       const date = ymd(d), w = (d.getDay() + 6) % 7, r = menu[date] || {};
       const tr = el("tr", w === 0 ? "wk" : "");
       tr.append(el("td", "dt", `${md(d)} ${DAYS[w]}`));
-      [["lunch", ""], ["snack", ""], ["mb", "mb"]].forEach(([f, cls]) => {
+      cols.forEach(([f, label, cls]) => {
         const td = el("td", cls); const inp = el("input"); inp.type = "text"; inp.id = `m-${date}-${f}`; inp.value = r[f] || "";
-        inp.setAttribute("aria-label", `${md(d)} ${f}`);
-        if (f === "mb" && !extraDays().includes(w) && !r[f]) inp.placeholder = "—";
-        inp.onchange = () => saveCell(date, f, inp.value.trim());
+        inp.setAttribute("aria-label", `${md(d)} ${label}`);
+        if (f === "mb" && !g.extraDays.includes(w) && !r[f]) inp.placeholder = "—";
+        inp.onchange = () => saveCell(g, date, f, inp.value.trim());
         td.append(inp); tr.append(td);
       });
       tb.append(tr);
     });
     t.append(tb); wrap.append(t); box.append(wrap);
   }
-  async function saveCell(date, f, v) {
-    const menu = { ...(month?.menu || {}) }; menu[date] = { ...(menu[date] || {}), [f]: v };
-    month = { ...(month || {}), menu, updatedAt: new Date().toISOString() }; months[monthId] = month;
-    try { await store.set("months/" + monthId, month); mStatus("고친 내용을 저장했어요."); } catch { mStatus("저장하지 못했어요.", true); }
+  async function saveGroup(g, patch) {
+    const gs = { ...(month?.groups || {}) };
+    gs[g.key] = { ...(gs[g.key] || {}), ...patch };
+    month = { ...(month || {}), groups: gs, updatedAt: new Date().toISOString() }; months[monthId] = month;
+    await store.set("months/" + monthId, month);
+  }
+  async function saveCell(g, date, f, v) {
+    const menu = { ...(gData(g).menu || {}) }; menu[date] = { ...(menu[date] || {}), [f]: v };
+    try { await saveGroup(g, { menu }); mStatus("고친 내용을 저장했어요."); renderWeekTab(); } catch { mStatus("저장하지 못했어요.", true); }
   }
   function mStatus(t, err) { const s = $("mStatus"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
 
@@ -798,8 +913,10 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 
   async function extractMonth() {
     if (!sample || busy) return;
-    const lunchText = $("lunchText").value.trim(), mbText = $("mbText").value.trim();
-    const images = [...files.lunch, ...files.mb];
+    const g = curGroup(); if (!g) return;
+    const lunchText = $("lunchText").value.trim(), mbText = g.extra ? $("mbText").value.trim() : "";
+    const mbFiles = g.extra ? files.mb : [];
+    const images = [...files.lunch, ...mbFiles];
     if (!lunchText && !mbText && !images.length) { mStatus("식단표 사진이나 글을 넣어 주세요.", true); return; }
     if (images.length) {
       const lim = await sample.limits().catch(() => null);
@@ -807,20 +924,21 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
       if (images.length > lim.images.maxCount) { mStatus(`사진은 한 번에 ${lim.images.maxCount}장까지 보낼 수 있어요.`, true); return; }
     }
     const [y, m] = monthId.split("-").map(Number);
+    const xDays = g.extraDays.map((i) => DAYS[i]).join("·");
     let imgNote = "";
-    if (files.lunch.length) imgNote += `\n첨부 이미지 1~${files.lunch.length}번은 ${kName()} 식단표야.`;
-    if (files.mb.length) imgNote += `\n첨부 이미지 ${files.lunch.length + 1}~${files.lunch.length + files.mb.length}번은 ${xName()}(${xDaysLabel() || "방과후 수업"}) 간식표야.`;
-    const prompt = `${y}년 ${m}월 유치원 식단표를 날짜별로 정리해줘.
-[${kName()} 식단표 (글)]
+    if (files.lunch.length) imgNote += `\n첨부 이미지 1~${files.lunch.length}번은 ${g.school} 식단표야.`;
+    if (mbFiles.length) imgNote += `\n첨부 이미지 ${files.lunch.length + 1}~${files.lunch.length + mbFiles.length}번은 ${g.extra}(${xDays}) 간식표야.`;
+    const prompt = `${y}년 ${m}월 ${g.school} 식단표를 날짜별로 정리해줘.
+[${g.school} 식단표 (글)]
 ${lunchText || "(사진 참고)"}
-[${xName()} 간식표 (글)]
-${mbText || (files.mb.length ? "(사진 참고)" : "(없음)")}${imgNote}
+${g.extra ? `[${g.extra} 간식표 (글)]\n${mbText || (mbFiles.length ? "(사진 참고)" : "(없음)")}` : ""}${imgNote}
 
 규칙:
 - ${y}년 ${m}월의 평일(월~금)만. 날짜는 YYYY-MM-DD.
-- lunch: ${kName()} 점심 메뉴를 쉼표로. 휴원일이면 "휴원".
-- snack: ${kName()} 오전·오후 간식(식단표에 있으면). 없으면 빈 문자열.
-- mb: ${xName()} 간식. ${xDaysLabel() ? `보통 ${xDaysLabel()}에만 있어.` : "따로 받은 간식표가 있을 때만."} 없으면 빈 문자열.
+- lunch: ${g.school} 점심 메뉴를 쉼표로. 휴원일이면 "휴원".
+- snack: ${g.school} 오전·오후 간식(식단표에 있으면). 없으면 빈 문자열.
+- mb: ${g.extra ? `${g.extra} 간식. 보통 ${xDays}에만 있어.` : "항상 빈 문자열."} 없으면 빈 문자열.
+- 식단표에 연령반별 메뉴가 따로 있으면 ${g.names.join("·")}(${kids().filter((c) => g.names.includes(kidName(c))).map(ageLabel).join(", ")})에 맞는 반을 골라.
 - 표에 없는 날은 넣지 마. 읽기 어려운 글자는 가장 가능성 높은 메뉴명으로.
 JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","mb":""}]}`;
     setBusy(true); mStatus("식단표를 읽는 중이에요…");
@@ -830,19 +948,18 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
         onText: ({ text }) => mStatus(`식단표를 읽는 중이에요… (${text.length.toLocaleString()}자)`),
       });
       if (!Array.isArray(r?.menu)) throw { code: "invalid_json" };
-      const menu = { ...(month?.menu || {}) };
+      const menu = { ...(gData(g).menu || {}) };
       let n = 0;
       r.menu.forEach((x) => {
         if (!x?.date || x.date.slice(0, 7) !== monthId) return;
         const cur = menu[x.date] || {};
-        menu[x.date] = { lunch: x.lunch || cur.lunch || "", snack: x.snack || cur.snack || "", mb: x.mb || cur.mb || "" };
+        menu[x.date] = { lunch: x.lunch || cur.lunch || "", snack: x.snack || cur.snack || "", mb: (g.extra && x.mb) || cur.mb || "" };
         n++;
       });
-      month = { lunchText, mbText, menu, updatedAt: new Date().toISOString() }; months[monthId] = month;
-      await store.set("months/" + monthId, month);
+      await saveGroup(g, { lunchText, mbText, menu });
       files.lunch = []; files.mb = []; renderThumbs("lunch"); renderThumbs("mb");
       renderMonth(); renderWeekTab();
-      mStatus(`${n}일치 식단을 정리했어요. 틀린 칸은 표에서 바로 고치면 저장돼요.`);
+      mStatus(`${g.school} ${n}일치 식단을 정리했어요. 틀린 칸은 표에서 바로 고치면 저장돼요.`);
     } catch (e) { mStatus(errText(e), true); }
     finally { setBusy(false); }
   }
@@ -867,10 +984,9 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
   function familyBlock() {
     const s = settings;
     return [
-      `[가족] 어른 ${adults()}명, 아이: ${kidsText() || "(정보 없음)"}. 다 같이 먹는 메뉴로 짜되 아이 몫은 나이에 맞게 싱겁고 맵지 않게. 어른 몫에 양념을 더하면 되는 경우 tip에 적어줘.`,
+      `[가족] 어른 ${adults()}명${kids().length ? `, 아이 ${kids().length}명: ${kidsDesc()}` : ""}. 다 같이 먹는 메뉴로 짜되 아이 몫은 아이별 나이에 맞게 간·맵기·크기·식감을 조절. 24개월 미만 아이는 간하기 전에 따로 덜고 잘게. 어른 몫에 양념을 더하면 되는 경우 tip에 적어줘.`,
       `[분량 기준] ${servesRule()}`,
-      `[아이가 좋아하는 음식·특성] ${s.kidLikes || "(정보 없음)"}`,
-      `[아이가 안 먹는 음식] ${s.kidDislikes || "(정보 없음)"}`,
+      ...kids().flatMap((c) => [`[${kidName(c)} — 좋아하는 음식·특성] ${c.likes || "(정보 없음)"}`, `[${kidName(c)} — 안 먹는 음식] ${c.dislikes || "(정보 없음)"}`]),
       `[배우자가 좋아하는 음식·특성] ${s.dadLikes || "(정보 없음)"}`,
       `[배우자가 안 먹는 음식] ${s.dadDislikes || "(정보 없음)"}`,
       `[요리하는 사람(나)이 좋아하는 음식] ${s.momLikes || "(정보 없음)"}`,
@@ -882,11 +998,20 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
   }
   const shopRules = () => `장보기 목록은 아래 '만들 끼니'에 필요한 것만, 이 분량 기준(${servesRule()})으로 끼니별로 합산해서, 한국 마트 단위(g, 개, 팩, 봉, 단, 모, 마리)로. 소금·간장·설탕·식용유·참기름·깨·다진마늘 같은 기본 양념은 빼고 특별한 소스만. 집에 있는 재료는 빼. 각 품목의 for에는 쓰는 끼니("화 저녁, 목 아침"처럼). 카테고리는 다음 중에서만: ${CATS.map((c) => `"${c}"`).join(", ")}.`;
 
+  // 그날 아이별 기관 메뉴를 한 줄로
+  function kinderLine(i) {
+    if (!groups().length) return "아이들 모두 가정보육";
+    const ks = kinderFor(i);
+    const home = kids().filter((c) => !c.school).map(kidName);
+    const parts = ks.map((k) => `${k.names.join("·")}(${k.school}) 점심: ${k.lunch || "?"}${k.snack ? ` / 간식: ${k.snack}` : ""}${k.mb ? ` / ${k.extra} 간식: ${k.mb}` : ""}`);
+    if (!ks.length) parts.push("기관 식단 정보 없음");
+    if (home.length) parts.push(`${home.join("·")}은(는) 가정보육`);
+    return parts.join(" ; ");
+  }
   function slotLines(withPlan) {
     const dates = weekDates(weekId);
     return DAYS.map((d, i) => {
-      const k = kinderFor(i);
-      const kin = i >= 5 ? "등원 없음" : k ? `유치원 점심: ${k.lunch || "?"}${k.snack ? ` / 유치원 간식: ${k.snack}` : ""}${k.mb ? ` / ${xName()} 간식: ${k.mb}` : ""}` : "유치원 식단 정보 없음";
+      const kin = i >= 5 ? "등원 없음" : kinderLine(i);
       const on = MEALS.filter((m) => isOn(i, m.k));
       const off = MEALS.filter((m) => !isOn(i, m.k) && week?.off?.[slotKey(i, m.k)] != null).map((m) => `${m.l}(${week.off[slotKey(i, m.k)] || "빠짐"})`);
       let line = `${d} ${md(dates[i])} — ${kin} | 만들 끼니: ${on.map((m) => m.l).join(", ") || "없음"}${off.length ? ` | 빠지는 끼니: ${off.join(", ")}` : ""}`;
@@ -915,9 +1040,9 @@ ${familyBlock()}
 ${slotLines(false)}
 
 규칙:
-1. 아이는 유치원에서 먹은 것과 비슷한 음식이 집에서 나오면 먹지 않으려고 해. 그날 집 끼니는 그날 유치원 점심·간식·방과후 간식과 주재료(닭·돼지·소·생선 종류·새우·두부·달걀 등), 요리 형태(카레, 볶음밥, 덮밥, 국수, 전, 머핀·빵, 같은 종류의 국·찌개 등), 맛 계열(간장조림, 토마토, 크림 등)이 겹치지 않게 해.
-2. 저녁은 다음 날 유치원 점심과도 겹치지 않게 해.
-3. 간식은 유치원 다녀온 뒤 먹는 집 간식이야. 그날 유치원 간식과 겹치지 않게, 5~10분 안에 준비되는 것으로.
+1. 아이들은 기관에서 먹은 것과 비슷한 음식이 집에서 나오면 먹지 않으려고 해. 그날 집 끼니는 아이별로 그날 먹은 점심·간식·방과후 간식 모두와 주재료(닭·돼지·소·생선 종류·새우·두부·달걀 등), 요리 형태(카레, 볶음밥, 덮밥, 국수, 전, 머핀·빵, 같은 종류의 국·찌개 등), 맛 계열(간장조림, 토마토, 크림 등)이 겹치지 않게 해.
+2. 저녁은 다음 날 아이들 기관 점심과도 겹치지 않게 해.
+3. 간식은 기관 다녀온 뒤 먹는 집 간식이야. 그날 기관 간식과 겹치지 않게, 5~10분 안에 준비되는 것으로. 그날 방과후 간식을 먹고 오는 아이가 있으면 그 아이는 양을 줄이라고 tip에.
 4. 아침·간식·저녁 조리 시간 합계가 하루 ${cookMin()}분을 넘지 않게. 평일 아침은 10~15분 이내. 주말에 미리 손질해 두면 좋은 건 notes에.
 5. '만들 끼니'에 있는 것만 짜고, 없는 끼니는 null.
 6. 한 주 동안 같은 메인 메뉴를 반복하지 말고 단백질을 골고루. 아이와 배우자가 좋아하는 것을 골고루 넣어.
@@ -941,7 +1066,7 @@ days는 월~일 7개.`;
         onText: ({ text }) => setStatus(`식단을 짜는 중이에요… (${text.length.toLocaleString()}자)`),
       });
       if (!Array.isArray(res?.days) || res.days.length < 7) throw { code: "invalid_json" };
-      const kinder = weekDates(weekId).slice(0, 5).map((d, i) => ({ date: ymd(d), ...(kinderFor(i) || {}) }));
+      const kinder = weekDates(weekId).slice(0, 5).map((d, i) => ({ date: ymd(d), items: kinderFor(i) }));
       await saveWeek({
         example: false, days: res.days, shopping: res.shopping || [], usesPantry: res.usesPantry || [],
         notes: res.notes || "", kinder, checked: {}, shoppingStale: false, recipes: {},
@@ -976,7 +1101,7 @@ ${list}
 - 분량: ${servesRule()} 재료 양은 이 분량에 맞춰 g, 개, 큰술, 작은술, 컵(200ml) 단위로 구체적으로.
 - 곁들임(반찬·국)도 함께 만드는 걸로 보고 재료와 순서에 포함해.
 - 목표 시간 안에 끝나게, 동시에 할 수 있는 일은 한 단계에 묶어. 순서는 3~7단계, 한 단계는 한두 문장.
-- kidTip: 아이 몫(나이 참고)을 언제 덜어내는지, 크기·간·식감 조절 한 문장.
+- kidTip: 아이별(이름과 나이 참고)로 몫을 언제 덜어내는지, 크기·간·식감 조절. 아이가 여러 명이면 아이마다 짧게.
 - adultTip: 어른 몫에 더하면 좋은 양념 한 문장(없으면 빈 문자열).
 - 소금·간장 같은 기본 양념도 재료에 양과 함께 적어.
 JSON 하나로만 답해: {"recipes":[{"key":"월-dinner","ingredients":[{"name":"","qty":""}],"steps":[""],"kidTip":"","adultTip":"","min":20}]}`;
@@ -996,16 +1121,16 @@ JSON 하나로만 답해: {"recipes":[{"key":"월-dinner","ingredients":[{"name"
   async function swapMeal(i, meal, btn) {
     if (!sample || busy || !week) return;
     const d = DAYS[i], label = MEALS.find((m) => m.k === meal).l;
-    const k = kinderFor(i) || {}, nk = i < 4 ? kinderFor(i + 1) || {} : {};
+
     const others = week.days.flatMap((x) => MEALS.map((m) => x[m.k]?.menu)).filter(Boolean).join(", ");
     const current = week.days.find((x) => x.day === d)?.[meal]?.menu || "";
     const prompt = `한국 가정 식단에서 ${d}요일 ${label} 메뉴 하나만 다른 것으로 바꿔줘.
 ${familyBlock()}
 [지금 메뉴 — 이것 말고] ${current}
 [이번 주 다른 끼니 — 겹치지 않게] ${others}
-[그날 유치원] 점심 ${k.lunch || "없음"} / 간식 ${k.snack || "없음"} / ${xName()} ${k.mb || "없음"}
-${meal === "dinner" ? `[다음 날 유치원 점심] ${nk.lunch || "없음"}` : meal === "snack" ? "유치원 다녀온 뒤 집 간식, 5~10분 준비." : "아침이니 10~15분 이내."}
-아이는 유치원에서 먹은 것과 주재료·요리 형태·맛이 비슷하면 안 먹으니 겹치지 않게 해. 새 메뉴에 필요한 재료 중 장보기 목록에 없을 법한 것은 tip에 적지 말고 그대로 둬.
+[그날 아이들 기관 메뉴] ${i <= 4 ? kinderLine(i) : "등원 없음"}
+${meal === "dinner" ? `[다음 날 아이들 기관 점심] ${i < 4 ? kinderLine(i + 1) : "등원 없음"}` : meal === "snack" ? "기관 다녀온 뒤 집 간식, 5~10분 준비." : "아침이니 10~15분 이내."}
+아이들은 기관에서 먹은 것과 주재료·요리 형태·맛이 비슷하면 안 먹으니 겹치지 않게 해. 새 메뉴에 필요한 재료 중 장보기 목록에 없을 법한 것은 tip에 적지 말고 그대로 둬.
 JSON 하나로만 답해: {"menu":"","sides":[""],"tip":"","min":10,"avoided":"무엇과 겹치지 않게 했는지 한 문장"}`;
     let newMenu = null;
     setBusy(true); btn.textContent = "바꾸는 중…";
