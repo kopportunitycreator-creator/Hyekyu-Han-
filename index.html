@@ -204,6 +204,15 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 .found-row .f-hint { flex-basis: 100%; font-size: 12px; color: var(--warn); padding-left: 24px; }
 .found-row .f-note { flex-basis: 100%; font-size: 12px; color: var(--warn); padding-left: 24px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .found-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 6px; }
+.modal-back { position: fixed; inset: 0; background: rgba(10, 20, 14, .55); display: grid; place-items: center; padding: 16px; z-index: 50; }
+.modal { background: var(--surface); color: var(--ink); border-radius: var(--r); padding: 18px; width: min(560px, 100%); max-height: calc(100% - 32px); overflow: auto; display: grid; gap: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.modal h3 { font-size: 19px; }
+.modal ol { margin: 0; padding-left: 1.3em; display: grid; gap: 10px; font-size: 14px; }
+.modal ol li::marker { font-weight: 700; color: var(--accent); }
+.modal textarea { min-height: 90px; font-size: 13px; }
+.modal .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.modal a { color: var(--accent); font-weight: 700; }
+.modal .err { color: var(--warn); font-size: 13px; min-height: 1.2em; }
 .credit { text-align: center; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: .02em; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
@@ -940,7 +949,7 @@ days는 월~일 7개.`;
   async function makeRecipes(keys) {
     if (!sample || busy || !keys.length) return false;
     const byDay = {};
-    keys.forEach((k) => { const d = k.split("-")[0]; (byDay[d] ||= []).push(k); });
+    keys.forEach((k) => { const d = sample.manual ? "이번 주" : k.split("-")[0]; (byDay[d] ||= []).push(k); });
     const dayList = Object.keys(byDay);
     setBusy(true);
     let done = 0;
@@ -949,7 +958,7 @@ days는 월~일 7개.`;
         setStatus(`레시피 쓰는 중이에요… (${done + 1}/${dayList.length}일)`);
         const list = byDay[d].map((k) => {
           const p = planFor(k); const l = MEALS.find((m) => m.k === k.split("-")[1]).l;
-          return `- key "${k}": ${d}요일 ${l} — ${p.menu}${p.sides?.length ? ` (곁들임: ${p.sides.join(", ")})` : ""}${p.min ? `, 목표 ${p.min}분` : ""}`;
+          return `- key "${k}": ${k.split("-")[0]}요일 ${l} — ${p.menu}${p.sides?.length ? ` (곁들임: ${p.sides.join(", ")})` : ""}${p.min ? `, 목표 ${p.min}분` : ""}`;
         }).join("\n");
         const prompt = `아래 끼니들의 집밥 레시피를 써줘.
 ${familyBlock()}
@@ -1024,6 +1033,51 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
     finally { setBusy(false); }
   }
   $("generate").onclick = generate;
+
+  // ---------- Claude를 바로 못 부를 때: Claude 채팅에 부탁하고 답을 붙여넣기 ----------
+  // (무료 계정 등에서 페이지 안 Claude 기능이 없을 때. 같은 부탁 글과 같은 답 형식을 써서 나머지 흐름은 그대로)
+  function askViaChat(prompt, nImages) {
+    return new Promise((resolve, reject) => {
+      const back = el("div", "modal-back");
+      const box = el("div", "modal"); box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true"); box.setAttribute("aria-labelledby", "chatTitle");
+      const h = el("h3", null, "Claude 채팅에서 이어서 하기"); h.id = "chatTitle";
+      box.append(h, el("p", "muted small", "이 계정에서는 페이지가 Claude를 바로 부를 수 없어요. 대신 Claude 채팅(무료 계정도 가능)에 부탁하고, 받은 답을 여기에 붙여넣으면 똑같이 진행돼요."));
+      const ol = el("ol");
+      const li1 = el("li"); li1.append("아래 부탁 글을 복사하세요.");
+      const q = el("textarea"); q.id = "chatPrompt"; q.readOnly = true; q.value = prompt;
+      const copy = el("button", "ghost", "부탁 글 복사");
+      copy.onclick = async () => { try { await navigator.clipboard.writeText(prompt); copy.textContent = "복사됨"; } catch { q.focus(); q.select(); copy.textContent = "글을 길게 눌러 복사하세요"; } };
+      const r1 = el("div", "row"); r1.append(copy); li1.append(q, r1);
+      const li2 = el("li"); const a = el("a", null, "Claude 새 채팅"); a.href = "https://claude.ai/new"; a.target = "_blank"; a.rel = "noopener";
+      li2.append(a, "을 열고 붙여넣어 보내세요." + (nImages ? ` 올렸던 사진 ${nImages}장도 같은 순서로 함께 첨부하세요.` : ""));
+      const li3 = el("li"); li3.append("Claude의 답을 처음부터 끝까지 복사해 아래에 붙여넣고 '답 넣기'를 누르세요.");
+      const ans = el("textarea"); ans.id = "chatAnswer"; ans.placeholder = "여기에 Claude 답 붙여넣기"; li3.append(ans);
+      ol.append(li1, li2, li3); box.append(ol);
+      const err = el("div", "err"); box.append(err);
+      const row = el("div", "row");
+      const ok = el("button", "primary", "답 넣기"); const cancel = el("button", "link quiet", "취소");
+      row.append(ok, cancel); box.append(row);
+      const close = () => { back.remove(); document.removeEventListener("keydown", onKey); };
+      const onKey = (e) => { if (e.key === "Escape") { close(); reject({ code: "cancelled" }); } };
+      document.addEventListener("keydown", onKey);
+      cancel.onclick = () => { close(); reject({ code: "cancelled" }); };
+      ok.onclick = () => {
+        const t = ans.value.replace(/```(?:json)?/gi, "");
+        const a0 = t.indexOf("{"), a1 = t.lastIndexOf("}");
+        try {
+          if (a0 < 0 || a1 <= a0) throw 0;
+          const v = JSON.parse(t.slice(a0, a1 + 1));
+          close(); resolve(v);
+        } catch { err.textContent = "답에서 결과를 찾지 못했어요. Claude 답을 처음부터 끝까지 모두 복사해 붙여넣어 주세요. 답이 중간에 끊겼다면 Claude에게 '계속'이라고 보내 이어 받은 뒤 전부 붙여넣어 주세요."; }
+      };
+      back.append(box); document.body.append(back); copy.focus();
+    });
+  }
+  const chatSample = {
+    manual: true,
+    limits: async () => ({ maxPromptBytes: 1e6, images: { maxCount: 50, maxInputBytes: 1e9, mediaTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] } }),
+    json: (prompt, opts = {}) => askViaChat(prompt, opts.images?.length || 0),
+  };
 
   // ---------- 냉파: 사진으로 재고 확인 ----------
   const fridgeRule = () => week?.fridgeMode
@@ -1125,7 +1179,8 @@ JSON 하나로만 답해: {"items":[{"name":"","qty":"","where":"냉동","sure":
     openWeek(weekId); openMonth(monthId);
     setBusy(false);
     booted = true; renderBanners();
-    setStatus(sample ? "" : "이 계정에서는 식단 짜기를 쓸 수 없어요. 식단 보기와 장보기 체크는 그대로 쓸 수 있어요.");
+    if (!sample) { sample = chatSample; setBusy(false); renderWeekTab(); }
+    setStatus(sample.manual ? "이 계정에서는 Claude를 바로 부를 수 없어서, 버튼을 누르면 Claude 채팅에 부탁하고 답을 붙여넣는 방식으로 진행돼요." : "");
   })();
 })();
 </script>

@@ -27,7 +27,11 @@
 - `sample`: 식단표 읽기(이미지 포함), 주간 식단·장보기 생성, 한 끼 교체.
 - `db`: `settings/family`(취향·집 재료), `months/YYYY-MM`(날짜별 유치원 메뉴), `weeks/YYYY-MM-DD`(월요일 기준 주간 식단·장보기·체크).
 
-Artifact 밖에서 열면 저장은 브라우저 localStorage로 대체되고, 식단 생성 버튼은 비활성화된다.
+Artifact 밖에서 열면 저장은 브라우저 localStorage로 대체된다.
+
+페이지에서 Claude를 바로 부를 수 없는 계정(`sample`이 없는 경우, 예: 무료 계정)은 'Claude 채팅 모드'로 동작한다.
+AI 버튼을 누르면 같은 부탁 글을 보여주고, 사용자가 Claude 채팅에 붙여넣어(사진도 첨부) 받은 JSON 답을 다시 붙여넣으면 나머지 흐름은 그대로 진행된다.
+이 모드에서는 레시피를 하루씩이 아니라 한 번에 요청한다.
 
 ## 다른 집용 버전 (`family/index.html`)
 
