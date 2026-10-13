@@ -231,6 +231,9 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
 .lbadd { justify-self: start; font-size: 11px; margin-top: 4px; }
 .meal.lunchbox { border: 1px solid var(--mark); border-radius: 8px; background: var(--surface); padding: 8px; }
 .lbtag { font-size: 11px; font-weight: 700; color: var(--mark-ink); background: var(--mark); border-radius: 999px; padding: 1px 8px; justify-self: start; }
+.meal.lunchcell { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 8px; }
+.meal.lunchcell .lab { display: none !important; }
+.lunchtag { font-size: 11px; font-weight: 700; color: var(--accent-ink); background: var(--accent); border-radius: 999px; padding: 1px 8px; justify-self: start; }
 .meal.lunchbox .lab { display: none !important; }
 .meal.lunchbox .lbnote { font-size: 12px; padding: 4px 8px; }
 #replanBox { display: grid; gap: 10px; border-top: 1px dashed var(--line); padding-top: 12px; }
@@ -386,7 +389,9 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
   const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
   const MEALS = [{ k: "breakfast", l: "아침" }, { k: "snack", l: "간식" }, { k: "dinner", l: "저녁" }];
   // 도시락(소풍 등)은 표의 기관 칸에 따로 보여주는 특별 끼니
-  const ALL_MEALS = [...MEALS, { k: "lunchbox", l: "도시락" }];
+  // 점심(주말 기본, 평일은 휴원·방학 때 추가)과 도시락(소풍 등)은 표의 기관 칸에 보여주는 끼니
+  const LUNCH = { k: "lunch", l: "점심" }, LUNCHBOX = { k: "lunchbox", l: "도시락" };
+  const ALL_MEALS = [MEALS[0], LUNCH, MEALS[1], MEALS[2], LUNCHBOX];
   const CATS = ["채소·과일", "육류·달걀", "생선·해산물", "두부·유제품", "곡류·면·빵", "소스·기타"];
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -574,6 +579,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
   const slotKey = (i, meal) => `${DAYS[i]}-${meal}`;
   function defaultOn(i, meal) {
     if (meal === "breakfast") return true;
+    if (meal === "lunch") return i >= 5;                 // 점심 토·일
     if (meal === "snack") return i <= 4 && (!kids().length || kids().some((c) => !(hasExtra(c) && c.extraDays.includes(i))));  // 평일, 방과후 간식 없는 아이가 있는 날
     return i <= 4;                                       // 저녁 월–금
   }
@@ -638,7 +644,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
   function renderSummary() {
     const box = $("slotSummary"); if (!box) return; box.replaceChildren();
     const count = (meal) => DAYS.filter((_, i) => isOn(i, meal)).length;
-    MEALS.forEach((m) => { const c = el("span", "chip"); c.append(`${m.l} `); c.append(el("b", null, String(count(m.k)))); box.append(c); });
+    ALL_MEALS.filter((m) => m.k !== "lunchbox").forEach((m) => { const c = el("span", "chip"); c.append(`${m.l} `); c.append(el("b", null, String(count(m.k)))); box.append(c); });
     const offs = Object.keys(week?.off || {}).length;
     if (offs) { const c = el("span", "chip"); c.append("외식·빠짐 "); c.append(el("b", null, String(offs))); box.append(c); }
     const t = el("span", "chip"); t.append("하루 요리 "); t.append(el("b", null, cookMin() + "분")); box.append(t);
@@ -729,7 +735,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
   function renderWeek() {
     const box = $("week"); box.replaceChildren();
     const head = el("div", "week-head");
-    ["", "기관에서 먹는 것", "아침", "간식", "저녁"].forEach((t) => head.append(el("div", null, t)));
+    ["", "점심 · 기관 메뉴", "아침", "간식", "저녁"].forEach((t) => head.append(el("div", null, t)));
     box.append(head);
     const dates = weekDates(weekId), todayStr = ymd(new Date());
     DAYS.forEach((d, i) => {
@@ -747,7 +753,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
 
       const kc = el("div", "kcell");
       const ks = kinderFor(i);
-      if (i >= 5) kc.append(el("span", "muted", "등원 없음"));
+      if (i >= 5) { if (!lunchShown(i)) kc.append(el("span", "muted", "등원 없음")); }
       else if (!groups().length) kc.append(el("span", "muted", "가정보육"));
       else if (!ks.length) kc.append(el("span", "muted", "식단 정보 없음"));
       else ks.forEach((k) => {
@@ -755,6 +761,8 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
         const line = (tag, v) => { if (!v) return; const l = el("div"); l.append(el("span", "ktag", tag)); l.append(document.createTextNode(v)); kc.append(l); };
         line("점심", k.lunch); line("간식", k.snack); line(k.extra || "방과후", k.mb);
       });
+      if (lunchShown(i)) kc.prepend(lunchCell(i, plan.lunch));
+      else if (!week?.example) { const al = el("button", "link quiet lbadd", "+ 집 점심"); al.title = "휴원·방학 등 집에서 점심을 먹는 날"; al.onclick = () => setOn(i, "lunch"); kc.append(al); }
       if (isOn(i, "lunchbox")) kc.prepend(lunchboxCell(i, plan.lunchbox));
       row.append(kc);
       MEALS.forEach((m) => row.append(mealCell(i, m, plan[m.k])));
@@ -1125,10 +1133,11 @@ ${slotLines(false)}
 8. avoided에는 그날(과 다음 날) 유치원 메뉴 중 무엇과 겹치지 않게 했는지 한 문장. 유치원 정보가 없는 날은 빈 문자열.
 9. ${shopRules()}
 10. sides는 반찬·국 0~3개, tip은 한 문장 이내(없으면 빈 문자열).
+${LUNCH_RULE}
 ${LUNCHBOX_RULE}${fridgeRule() ? "\n11. " + fridgeRule() : ""}
 
 JSON 하나로만 답해. 형식:
-{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"tip":"","min":10},"snack":null,"dinner":{"menu":"","sides":[""],"tip":"","min":20},"lunchbox":null,"avoided":""}],
+{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"tip":"","min":10},"snack":null,"dinner":{"menu":"","sides":[""],"tip":"","min":20},"lunch":null,"lunchbox":null,"avoided":""}],
  "shopping":[{"category":"채소·과일","items":[{"name":"","qty":"","for":""}]}],
  "usesPantry":["감자 (화 저녁, 목 아침)"],
  "notes":"주말에 미리 해두면 좋은 준비 1~2문장"}
@@ -1206,7 +1215,7 @@ ${familyBlock()}
 [지금 메뉴 — 이것 말고] ${current}
 [이번 주 다른 끼니 — 겹치지 않게] ${others}
 [그날 아이들 기관 메뉴] ${i <= 4 ? kinderLine(i) : "등원 없음"}
-${meal === "dinner" ? `[다음 날 아이들 기관 점심] ${i < 4 ? kinderLine(i + 1) : "등원 없음"}` : meal === "snack" ? "기관 다녀온 뒤 집 간식, 5~10분 준비." : meal === "lunchbox" ? `소풍 도시락(${week.lunchbox?.[d] || "소풍"}): 식어도 맛있고 손이나 포크로 먹기 쉽게, 상하기 쉬운 재료는 피해서. 도시락 먹는 아이는 이날 기관 점심을 안 먹어.` : "아침이니 10~15분 이내."}
+${meal === "dinner" ? `[다음 날 아이들 기관 점심] ${i < 4 ? kinderLine(i + 1) : "등원 없음"}` : meal === "snack" ? "기관 다녀온 뒤 집 간식, 5~10분 준비." : meal === "lunch" ? "집 점심: 그날 아침·저녁과 겹치지 않게, 20분 안팎." : meal === "lunchbox" ? `소풍 도시락(${week.lunchbox?.[d] || "소풍"}): 식어도 맛있고 손이나 포크로 먹기 쉽게, 상하기 쉬운 재료는 피해서. 도시락 먹는 아이는 이날 기관 점심을 안 먹어.` : "아침이니 10~15분 이내."}
 아이들은 기관에서 먹은 것과 주재료·요리 형태·맛이 비슷하면 안 먹으니 겹치지 않게 해. 새 메뉴에 필요한 재료 중 장보기 목록에 없을 법한 것은 tip에 적지 말고 그대로 둬.
 JSON 하나로만 답해: {"menu":"","sides":[""],"tip":"","min":10,"avoided":"무엇과 겹치지 않게 했는지 한 문장"}`;
     let newMenu = null;
@@ -1244,10 +1253,21 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
   $("generate").onclick = generate;
   $("busyStop").onclick = () => { abortCtl?.abort(); $("busyText").textContent = "멈추는 중이에요…"; };
 
+  // ---------- 집 점심 (주말 기본) ----------
+  const lunchShown = (i) => isOn(i, "lunch") || week?.off?.[slotKey(i, "lunch")] != null;
+  function lunchCell(i, plan) {
+    const c = mealCell(i, LUNCH, plan);
+    c.classList.add("lunchcell");
+    c.prepend(el("span", "lunchtag", "집 점심"));
+    // 평일에 넣은 점심은 '점심 빼기'로 되돌림
+    if (i <= 4) c.querySelectorAll(".link.quiet").forEach((b) => { if (b.textContent === "외식·빼기") { b.textContent = "점심 빼기"; b.onclick = () => { const on = { ...(week.on || {}) }; delete on[slotKey(i, "lunch")]; saveWeek({ on, ...(plan?.menu ? { shoppingStale: true } : {}) }); }; } });
+    return c;
+  }
+
   // ---------- 도시락 (소풍·체험학습) ----------
   function lunchboxCell(i, plan) {
     const d = DAYS[i];
-    const c = mealCell(i, ALL_MEALS[3], plan);
+    const c = mealCell(i, LUNCHBOX, plan);
     c.classList.add("lunchbox");
     const note = el("input", "lbnote"); note.type = "text"; note.id = "lb-" + d; note.value = week.lunchbox[d] || "";
     note.placeholder = "예) 소풍, 체험학습, 어른 몫도"; note.setAttribute("aria-label", `${d}요일 도시락 메모`);
@@ -1264,6 +1284,7 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
     });
     return c;
   }
+  const LUNCH_RULE = "- 점심(lunch)은 '만들 끼니'에 점심이 있는 날만 짜(주로 토·일). 가족이 같이 먹는 집 점심으로 그날 아침·저녁과 겹치지 않게, 20분 안팎. 점심이 있는 날은 하루 요리 시간을 조금 넘어도 돼(최대 1.5배).";
   const LUNCHBOX_RULE = "- 도시락(lunchbox)은 '만들 끼니'에 도시락이 있는 날만 짜. 소풍·체험학습에 아이가 들고 가는 점심이야. 식어도 맛있고 손이나 포크로 먹기 쉽게(김밥·주먹밥·유부초밥·샌드위치 등), 상하기 쉬운 재료(마요네즈 버무림, 날것, 크림)는 피하고, 아침에 준비하니 그날 조리 시간에 포함해. 도시락 날 그 아이의 기관 점심은 겹침 대상에서 빼고, 그날 아침과는 메뉴가 겹치지 않게.";
 
   // ---------- 재료가 새로 생겼을 때: 남은 끼니만 다시 짜기 ----------
@@ -1316,6 +1337,7 @@ ${slotLines(true)}
 1. 새로 생긴 재료를 신선한 것부터 바꿔도 되는 끼니 안에서 자연스럽게 써. 모든 끼니를 바꿀 필요는 없고, 새 재료를 쓰는 끼니와 그 때문에 메뉴가 겹치게 되는 끼니만 바꿔.
 2. 지금 식단이 '?'인 끼니(새로 생기거나 외식에서 집밥으로 바뀐 끼니)는 반드시 채워.
 3. 기존 규칙은 그대로: 아이가 그날(과 다음 날) 기관에서 먹는 메뉴와 주재료·요리 형태·맛이 겹치지 않게, 하루 조리 시간 ${cookMin()}분 이내, 한 주 동안 같은 메인 메뉴 반복 금지.
+${LUNCH_RULE}
 ${LUNCHBOX_RULE}
 ${fridgeRule()}
 4. 바꾸지 않는 끼니는 changes에 넣지 마. key는 위 목록 그대로.
