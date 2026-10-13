@@ -235,6 +235,9 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
 .meal.lunchbox .lbnote { font-size: 12px; padding: 4px 8px; }
 #replanBox { display: grid; gap: 10px; border-top: 1px dashed var(--line); padding-top: 12px; }
 #replanBox select { width: 100%; }
+.busybar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); font-size: 14px; }
+.busybar span { min-width: 0; }
+.busybar .ghost { flex: none; background: transparent; color: var(--bg); border-color: var(--bg); }
 .credit { text-align: center; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: .02em; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
@@ -374,6 +377,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
     <span class="saved" id="prefsSaved"></span>
   </section>
 
+  <div class="busybar" id="busybar" hidden role="status" aria-live="polite"><span id="busyText"></span><button class="ghost" id="busyStop">멈추기</button></div>
   <footer class="credit">© 2026 혜규lab. All rights reserved.</footer>
 </div>
 
@@ -954,7 +958,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
     const menu = { ...(gData(g).menu || {}) }; menu[date] = { ...(menu[date] || {}), [f]: v };
     try { await saveGroup(g, { menu }); mStatus("고친 내용을 저장했어요."); renderWeekTab(); } catch { mStatus("저장하지 못했어요.", true); }
   }
-  function mStatus(t, err) { const s = $("mStatus"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
+  function mStatus(t, err) { const s = $("mStatus"); s.textContent = t || ""; s.classList.toggle("err", !!err); if (busy && t) $("busyText").textContent = t; }
 
   // images
   function setupDrop(kind) {
@@ -1008,7 +1012,7 @@ ${g.extra ? `[${g.extra} 간식표 (글)]\n${mbText || (mbFiles.length ? "(사�
 JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","mb":""}]}`;
     setBusy(true); mStatus("식단표를 읽는 중이에요…");
     try {
-      const r = await sample.json(prompt, {
+      const r = await ask(prompt, {
         images: images.length ? images : undefined, modelTier: "complex", cache: false,
         onText: ({ text }) => mStatus(`식단표를 읽는 중이에요… (${text.length.toLocaleString()}자)`),
       });
@@ -1031,9 +1035,14 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
   $("extract").onclick = extractMonth;
 
   // ---------- Claude ----------
-  function setStatus(t, err) { const s = $("status"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
+  function setStatus(t, err) { const s = $("status"); s.textContent = t || ""; s.classList.toggle("err", !!err); if (busy && t) $("busyText").textContent = t; }
+  let abortCtl = null;
+  // AI 작업 중에는 화면 아래에 진행 상황과 '멈추기'를 보여줌 (스크롤해도 보이게)
+  const ask = (prompt, opts = {}) => sample.json(prompt, abortCtl ? { ...opts, signal: abortCtl.signal } : opts);
   function setBusy(on) {
-    busy = on; $("generate").disabled = on || !sample; $("extract").disabled = on || !sample; $("scanFridge").disabled = on || !sample;
+    busy = on;
+    abortCtl = on ? new AbortController() : null;
+    $("busybar").hidden = !on; if (on) $("busyText").textContent = "작업 중이에요…"; $("generate").disabled = on || !sample; $("extract").disabled = on || !sample; $("scanFridge").disabled = on || !sample;
     document.querySelectorAll(".meal .link, .banner.stale button").forEach((b) => (b.disabled = on));
   }
   function errText(e) {
@@ -1128,7 +1137,7 @@ days는 월~일 7개.`;
     let ok = false;
     setBusy(true); setStatus("유치원 메뉴를 피해서 식단을 짜는 중이에요…");
     try {
-      const res = await sample.json(prompt, {
+      const res = await ask(prompt, {
         modelTier: "complex", cache: false,
         onText: ({ text }) => setStatus(`식단을 짜는 중이에요… (${text.length.toLocaleString()}자)`),
       });
@@ -1173,7 +1182,7 @@ ${list}
 - adultTip: 어른 몫에 더하면 좋은 양념 한 문장(없으면 빈 문자열).
 - 소금·간장 같은 기본 양념도 재료에 양과 함께 적어.
 JSON 하나로만 답해: {"recipes":[{"key":"월-dinner","ingredients":[{"name":"","qty":""}],"steps":[""],"kidTip":"","adultTip":"","min":20}]}`;
-        const r = await sample.json(prompt, { modelTier: "default", cache: false });
+        const r = await ask(prompt, { modelTier: "default", cache: false });
         const recipes = { ...(week?.recipes || {}) };
         (r?.recipes || []).forEach((x) => { if (byDay[d].includes(x?.key) && x.steps?.length) recipes[x.key] = { ingredients: x.ingredients || [], steps: x.steps, kidTip: x.kidTip || "", adultTip: x.adultTip || "", min: x.min || null }; });
         await saveWeek({ recipes });
@@ -1203,7 +1212,7 @@ JSON 하나로만 답해: {"menu":"","sides":[""],"tip":"","min":10,"avoided":"�
     let newMenu = null;
     setBusy(true); btn.textContent = "바꾸는 중…";
     try {
-      const m = await sample.json(prompt, { modelTier: "default", cache: false });
+      const m = await ask(prompt, { modelTier: "default", cache: false });
       if (!m?.menu) throw { code: "invalid_json" };
       const days = week.days.map((x) => x.day === d ? { ...x, [meal]: { menu: m.menu, sides: m.sides || [], tip: m.tip || "", min: m.min || null }, avoided: m.avoided || x.avoided } : x);
       const recipes = { ...(week.recipes || {}) }; delete recipes[slotKey(i, meal)];
@@ -1225,7 +1234,7 @@ ${fridgeRule()}
 JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":"","for":""}]}],"usesPantry":["감자 (화 저녁)"]}`;
     setBusy(true); setStatus("장보기 목록을 다시 만드는 중이에요…");
     try {
-      const r = await sample.json(prompt, { modelTier: "default", cache: false });
+      const r = await ask(prompt, { modelTier: "default", cache: false });
       if (!Array.isArray(r?.shopping)) throw { code: "invalid_json" };
       await saveWeek({ shopping: r.shopping, usesPantry: r.usesPantry || week.usesPantry || [], checked: {}, shoppingStale: false });
       setStatus("장보기 목록을 새로 만들었어요.");
@@ -1233,6 +1242,7 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
     finally { setBusy(false); }
   }
   $("generate").onclick = generate;
+  $("busyStop").onclick = () => { abortCtl?.abort(); $("busyText").textContent = "멈추는 중이에요…"; };
 
   // ---------- 도시락 (소풍·체험학습) ----------
   function lunchboxCell(i, plan) {
@@ -1313,7 +1323,7 @@ JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""]
     let changed = [];
     setBusy(true); setStatus("새 재료로 남은 식단을 다시 짜는 중이에요…");
     try {
-      const r = await sample.json(prompt, { modelTier: "complex", cache: false,
+      const r = await ask(prompt, { modelTier: "complex", cache: false,
         onText: ({ text }) => setStatus(`새 재료로 남은 식단을 다시 짜는 중이에요… (${text.length.toLocaleString()}자)`) });
       if (!Array.isArray(r?.changes)) throw { code: "invalid_json" };
       const days = DAYS.map((d) => ({ day: d, ...(week.days.find((x) => x.day === d) || {}) }));
@@ -1388,7 +1398,7 @@ JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""]
   $("fridgeMode").onchange = () => saveWeek({ fridgeMode: $("fridgeMode").checked, ...(week?.days ? { shoppingStale: true } : {}) });
 
   let found = [];
-  function fStatus(t, err) { const s = $("fStatus"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
+  function fStatus(t, err) { const s = $("fStatus"); s.textContent = t || ""; s.classList.toggle("err", !!err); if (busy && t) $("busyText").textContent = t; }
   // 찾은 재료: 이름·양·보관 위치를 직접 고치고, 빼거나 추가할 수 있음
   function renderFound() {
     const box = $("fridgeResult"); box.replaceChildren();
@@ -1454,7 +1464,7 @@ JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""]
 JSON 하나로만 답해: {"items":[{"name":"","qty":"","where":"냉동","sure":true,"note":""}]}`;
     setBusy(true); $("scanFridge").disabled = true; fStatus("사진 속 재료를 찾는 중이에요…");
     try {
-      const r = await sample.json(prompt, { images, modelTier: "complex", cache: false,
+      const r = await ask(prompt, { images, modelTier: "complex", cache: false,
         onText: ({ text }) => fStatus(`사진 속 재료를 찾는 중이에요… (${text.length.toLocaleString()}자)`) });
       if (!Array.isArray(r?.items)) throw { code: "invalid_json" };
       found = r.items.filter((x) => x?.name).map((x) => ({ ...x, keep: true }));
