@@ -240,6 +240,14 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
 .busybar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); font-size: 14px; }
 .busybar span { min-width: 0; }
 .busybar .ghost { flex: none; background: transparent; color: var(--bg); border-color: var(--bg); }
+.daypick { display: flex; gap: 4px; }
+.dp { flex: 1 1 0; min-width: 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 6px 4px; display: grid; justify-items: center; gap: 0; line-height: 1.2; }
+.dp b { font-family: var(--font-display); font-weight: 400; font-size: 18px; }
+.dp small { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dp.today { border-color: var(--mark); box-shadow: inset 0 -3px 0 var(--mark); }
+.dp[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.dp[aria-pressed="true"] small { color: var(--accent-ink); }
+.dp.all { flex: 1.3 1 0; font-size: 13px; font-weight: 700; }
 .credit { text-align: center; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: .02em; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
@@ -302,6 +310,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
     </div>
 
     <div id="banners" class="panel"></div>
+    <div class="daypick" id="dayPicker" role="group" aria-label="요일 선택"></div>
     <div class="week" id="week" aria-label="주간 식단"></div>
     <div class="card" id="shop" aria-label="장보기 목록" hidden></div>
   </section>
@@ -447,7 +456,8 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
   const months = {}; // cache of month docs used by the week view
   let unsubWeek = null, unsubMonth = null;
   let sample = null, busy = false, booted = false;
-  let openRecipe = null; // slot key of the recipe shown under its day
+  let openRecipe = null;
+  let selDay = null; // 표에 보여줄 요일 ("all"이면 일주일 전체) // slot key of the recipe shown under its day
   const files = { lunch: [], mb: [], fridge: [] };
 
   // ---------- tabs ----------
@@ -630,6 +640,8 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
     weekId = id;
     $("weekLabel").textContent = weekLabel(id);
     $("weekTitle").textContent = id === ymd(defaultMonday()) ? "이번 주" : "주간 식단";
+    const t = weekDates(id).findIndex((d) => ymd(d) === ymd(new Date()));
+    selDay = DAYS[t >= 0 ? t : 0];
     unsubWeek?.(); week = null; renderWeekTab();
     unsubWeek = store.watch("weeks/" + id, (data) => { week = data; renderWeekTab(); });
     loadMonthsForWeek();
@@ -731,13 +743,29 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
     setTimeout(() => { btn.textContent = "레시피 복사"; }, 2500);
   }
 
+  function renderDayPicker() {
+    const box = $("dayPicker"); box.replaceChildren();
+    const dates = weekDates(weekId), todayStr = ymd(new Date());
+    DAYS.forEach((d, i) => {
+      const b = el("button", "dp" + (ymd(dates[i]) === todayStr ? " today" : ""));
+      b.append(el("b", null, d), el("small", null, String(dates[i].getDate())));
+      b.setAttribute("aria-pressed", String(selDay === d)); b.setAttribute("aria-label", `${d}요일 ${md(dates[i])}만 보기`);
+      b.onclick = () => { selDay = d; renderWeek(); };
+      box.append(b);
+    });
+    const all = el("button", "dp all", "전체"); all.setAttribute("aria-pressed", String(selDay === "all"));
+    all.onclick = () => { selDay = "all"; renderWeek(); };
+    box.append(all);
+  }
   function renderWeek() {
+    renderDayPicker();
     const box = $("week"); box.replaceChildren();
     const head = el("div", "week-head");
     ["", "기관 메뉴", "아침", "점심", "간식", "저녁"].forEach((t) => head.append(el("div", null, t)));
     box.append(head);
     const dates = weekDates(weekId), todayStr = ymd(new Date());
     DAYS.forEach((d, i) => {
+      if (selDay && selDay !== "all" && selDay !== d) return;
       const plan = week?.days?.find?.((x) => x.day === d) || {};
       const row = el("div", "day" + (ymd(dates[i]) === todayStr ? " today" : ""));
       const lab = el("div", "dlabel"); lab.append(el("span", "d", d), el("span", "date", md(dates[i])));
