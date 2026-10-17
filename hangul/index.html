@@ -104,7 +104,10 @@ section.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; 
 .pic .dashed { font-family: var(--font-letter); font-weight: 700; font-size: 82px; line-height: 1; color: transparent; -webkit-text-stroke: 2px var(--guide-line); }
 .c { background: var(--cons-bg); color: var(--cons); }
 .v { background: var(--vow-bg); color: var(--vow); }
-.home-note { color: var(--muted); font-size: 15px; text-align: center; padding-bottom: 4px; }
+.home-note { color: var(--muted); font-size: 15px; text-align: center; }
+.sound { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-bottom: 4px; }
+.sound p { max-width: 34em; text-align: center; line-height: 1.55; }
+.sound-warn { font-family: var(--font-body); font-size: 16px; line-height: 1.5; }
 
 /* shared game parts */
 .dots { display: flex; justify-content: center; gap: 10px; }
@@ -240,6 +243,7 @@ section.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; 
     <button class="icon-btn" id="btn-parent">어른</button>
   </div>
 
+  <div class="banner sound-warn" id="sound-warn" hidden></div>
   <main>
     <!-- home -->
     <section class="screen" data-screen="home">
@@ -265,6 +269,10 @@ section.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; 
         </button>
       </div>
       <p class="home-note">한 판은 다섯 개로 끝나요. 엄마 아빠가 옆에 있으면 더 재밌어요.</p>
+      <div class="sound">
+        <button class="soft-btn" id="s-test"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>소리 확인</button>
+        <p class="small" id="s-msg"></p>
+      </div>
     </section>
 
     <!-- picture match -->
@@ -464,15 +472,47 @@ section.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; 
     koVoice = vs.find((v) => /^ko/i.test(v.lang) && /female|yuna|heami|sunhi|여/i.test(v.name)) || vs.find((v) => /^ko/i.test(v.lang)) || null;
   }
   if (synth) { findVoice(); synth.addEventListener?.('voiceschanged', findVoice); }
-  function speak(text) {
-    if (!settings.voice || !synth) return;
+  // Keep a reference to the live utterance: some browsers drop it mid-sentence once it is garbage-collected.
+  let curU = null, soundChecked = false;
+  function speak(text, onResult) {
+    if (!soundChecked && !onResult) { soundChecked = true; onResult = (ok, why) => { if (!ok && why !== 'off') soundTrouble(why); }; }
+    if (!settings.voice) { onResult?.(false, 'off'); return; }
+    if (!synth || typeof SpeechSynthesisUtterance === 'undefined') { onResult?.(false, 'nosynth'); return; }
     try {
-      synth.cancel();
+      if (!koVoice) findVoice();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'ko-KR'; if (koVoice) u.voice = koVoice;
-      u.rate = settings.rate; u.pitch = 1.1; u.volume = 0.9;
-      synth.speak(u);
-    } catch {}
+      u.rate = settings.rate; u.pitch = 1.1; u.volume = 1;
+      let started = false;
+      u.onstart = () => { started = true; onResult?.(true); };
+      u.onerror = (e) => { if (e.error !== 'interrupted' && e.error !== 'canceled' && !started) onResult?.(false, e.error || 'error'); };
+      if (onResult) setTimeout(() => { if (!started && curU === u) onResult(false, 'timeout'); }, 3000);
+      curU = u;
+      // Chrome and Safari can swallow a speak() that comes right after cancel(), so wait a moment when something is playing.
+      if (synth.speaking || synth.pending) {
+        synth.cancel();
+        setTimeout(() => { if (curU === u) { synth.resume(); synth.speak(u); } }, 120);
+      } else { synth.resume(); synth.speak(u); }
+    } catch { onResult?.(false, 'error'); }
+  }
+  function soundHelp(why) {
+    if (why === 'off') return '어른 메뉴에서 읽어 주는 목소리가 꺼져 있어요.';
+    if (why === 'nosynth') return '지금 화면에서는 읽어 주기 기능을 쓸 수 없어요. Claude 앱 안에서 열었다면, 링크를 크롬(안드로이드)이나 사파리(아이폰·아이패드)에서 열어 주세요.';
+    return '소리가 시작되지 않았어요. ① 아이폰·아이패드는 무음 모드를 끄고 볼륨을 올려 주세요. ② Claude 앱 안에서 열었다면 크롬이나 사파리에서 열어 주세요. ③ 기기 설정에서 한국어 음성(텍스트 음성 변환)을 받아 주세요.'
+      + (koVoice ? '' : ' 지금 이 기기에서 한국어 목소리를 찾지 못했어요.');
+  }
+  function soundTrouble(why) {
+    const w = $('#sound-warn');
+    w.textContent = '소리가 안 나요. ' + soundHelp(why);
+    w.hidden = false;
+    $('#s-msg').textContent = soundHelp(why);
+  }
+  function soundTest(msgEl) {
+    msgEl.textContent = '들어 보세요…';
+    speak('안녕, 해린아! 같이 한글 놀이 하자.', (ok, why) => {
+      if (ok) { msgEl.textContent = '목소리가 나오고 있어요. 안 들리면 볼륨을 올리고, 아이폰은 무음 모드를 꺼 주세요.'; $('#sound-warn').hidden = true; }
+      else msgEl.textContent = soundHelp(why);
+    });
   }
 
   // ---------- screens ----------
@@ -517,11 +557,11 @@ section.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; 
   }
   setInterval(tick, 1000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) { store.set('used.' + day, used); synth?.cancel(); } });
-  function goRest() {
+  function goRest(quiet) {
     store.set('used.' + day, used);
     $('#r-ideas').innerHTML = shuffle(IDEAS).slice(0, 3).map((i) => `<li>${esc(i)}</li>`).join('');
     show('rest');
-    speak('오늘 한글 놀이 끝! 해가 졌어요. 내일 또 만나요.');
+    if (!quiet) speak('오늘 한글 놀이 끝! 해가 졌어요. 내일 또 만나요.');
   }
   // Returns true when play should stop at this natural break.
   const stopHere = () => { if (timeUp) { goRest(); return true; } return false; };
@@ -759,7 +799,9 @@ section.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; 
   $('#p-limit').addEventListener('change', (e) => { settings.limit = Number(e.target.value); saveSettings(); recheck(); });
   document.querySelectorAll('input[name="voice"]').forEach((i) => i.addEventListener('change', () => { settings.voice = i.value === 'on'; saveSettings(); }));
   document.querySelectorAll('input[name="rate"]').forEach((i) => i.addEventListener('change', () => { settings.rate = Number(i.value); saveSettings(); }));
-  $('#p-test').addEventListener('click', () => speak('안녕, 해린아! 같이 한글 놀이 하자.'));
+  $('#p-test').addEventListener('click', () => soundTest($('#p-voice-note')));
+  $('#s-test').addEventListener('click', () => soundTest($('#s-msg')));
+  $('#sound-warn').addEventListener('click', () => { $('#sound-warn').hidden = true; });
   $('#p-reset').addEventListener('click', () => { used = 0; bonus = 0; store.set('used.' + day, 0); store.set('bonus.' + day, 0); recheck(); openParent(); });
   function recheck() { if (used < limitSec()) { timeUp = false; warned = false; } drawSky(); }
   $('#p-close').addEventListener('click', () => {
@@ -769,6 +811,7 @@ section.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; 
 
   // ---------- boot ----------
   drawSky();
-  if (used >= limitSec()) { timeUp = true; goRest(); } else show('home');
+  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') $('#s-msg').textContent = soundHelp('nosynth');
+  if (used >= limitSec()) { timeUp = true; goRest(true); } else show('home');
 })();
 </script>
