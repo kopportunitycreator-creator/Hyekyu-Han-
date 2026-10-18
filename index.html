@@ -225,6 +225,8 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 .kid-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .busybar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); font-size: 14px; }
 .busybar span { min-width: 0; }
+.busybar #busyText { flex: 1 1 auto; }
+.busybar .busytime { flex: none; font-variant-numeric: tabular-nums; opacity: .75; }
 .busybar .ghost { flex: none; background: transparent; color: var(--bg); border-color: var(--bg); }
 .daypick { display: flex; gap: 4px; }
 .dp { flex: 1 1 0; min-width: 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 6px 4px; display: grid; justify-items: center; gap: 0; line-height: 1.2; }
@@ -373,7 +375,7 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
     <span class="saved" id="prefsSaved"></span>
   </section>
 
-  <div class="busybar" id="busybar" hidden role="status" aria-live="polite"><span id="busyText"></span><button class="ghost" id="busyStop">멈추기</button></div>
+  <div class="busybar" id="busybar" hidden role="status" aria-live="polite"><span id="busyText"></span><span class="busytime" id="busyTime"></span><button class="ghost" id="busyStop">멈추기</button></div>
   <footer class="credit">© 2026 혜규lab. All rights reserved.</footer>
 </div>
 
@@ -908,7 +910,7 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
 
   // ---------- Claude ----------
   function setStatus(t, err) { const s = $("status"); s.textContent = t || ""; s.classList.toggle("err", !!err); if (busy && t) $("busyText").textContent = t; }
-  let abortCtl = null, wakeLock = null;
+  let abortCtl = null, wakeLock = null, busyTimer = null;
   // AI 작업 중에는 화면 아래에 진행 상황과 '멈추기'를 보여줌 (스크롤해도 보이게)
   const ask = (prompt, opts = {}) => sample.json(prompt, abortCtl ? { ...opts, signal: abortCtl.signal } : opts);
   function setBusy(on) {
@@ -916,6 +918,8 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
     if (on) { navigator.wakeLock?.request("screen").then((l) => { wakeLock = l; }).catch(() => {}); }
     else { wakeLock?.release?.().catch?.(() => {}); wakeLock = null; }
     abortCtl = on ? new AbortController() : null;
+    clearInterval(busyTimer); $("busyTime").textContent = "";
+    if (on) { const t0 = Date.now(); busyTimer = setInterval(() => { $("busyTime").textContent = `${Math.round((Date.now() - t0) / 1000)}초`; }, 1000); }
     $("busybar").hidden = !on; if (on) $("busyText").textContent = "작업 중이에요…"; $("generate").disabled = on || !sample; $("extract").disabled = on || !sample; $("scanFridge").disabled = on || !sample;
     document.querySelectorAll(".meal .link, .banner.stale button").forEach((b) => (b.disabled = on));
   }
@@ -1003,11 +1007,11 @@ JSON 하나로만 답해. 형식:
 days는 월~일 7개.`;
 
     let ok = false;
-    setBusy(true); setStatus("유치원 메뉴를 피해서 식단을 짜는 중이에요…");
+    setBusy(true); setStatus("식단을 쓰기 시작하는 중이에요…");
     try {
       const res = await ask(prompt, {
-        modelTier: "default", cache: false,
-        onText: ({ text }) => setStatus(`식단을 짜는 중이에요… (${text.length.toLocaleString()}자)`),
+        modelTier: "quick", cache: false,
+        onText: ({ text }) => setStatus(`식단을 쓰는 중이에요… (${Math.min(7, (text.match(/"day"\s*:/g) || []).length)}/7일)`),
       });
       if (!Array.isArray(res?.days) || res.days.length < 7) throw { code: "invalid_json" };
       const kinder = weekDates(weekId).slice(0, 5).map((d, i) => ({ date: ymd(d), ...(kinderFor(i) || {}) }));
@@ -1212,7 +1216,7 @@ JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""]
     let changed = [];
     setBusy(true); setStatus("새 재료로 남은 식단을 다시 짜는 중이에요…");
     try {
-      const r = await ask(prompt, { modelTier: "default", cache: false,
+      const r = await ask(prompt, { modelTier: "quick", cache: false,
         onText: ({ text }) => setStatus(`새 재료로 남은 식단을 다시 짜는 중이에요… (${text.length.toLocaleString()}자)`) });
       if (!Array.isArray(r?.changes)) throw { code: "invalid_json" };
       const days = DAYS.map((d) => ({ day: d, ...(week.days.find((x) => x.day === d) || {}) }));
