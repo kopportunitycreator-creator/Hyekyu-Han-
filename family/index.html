@@ -259,6 +259,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
 #babyBox h3 { margin-top: 4px; }
 .pchip { justify-self: start; font-size: 11px; color: var(--accent); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
 .pchip.weak { color: var(--warn); border-color: var(--warn); }
+.item .warnfor { color: var(--warn); }
 .credit { text-align: center; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: .02em; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
@@ -920,7 +921,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
 
   function renderShop() {
     const box = $("shop"); box.replaceChildren();
-    const cats = week?.shopping;
+    const cats = Array.isArray(week?.shopping) ? verifyShopping(JSON.parse(JSON.stringify(week.shopping))) : week?.shopping;
     if (selDay !== "shop") { box.hidden = true; return; }
     if (!Array.isArray(cats) || !cats.length) {
       box.hidden = false;
@@ -956,6 +957,12 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
         const cb = el("input"); cb.type = "checkbox"; cb.checked = !!checked[key];
         cb.onchange = () => { const ch = { ...(week.checked || {}) }; if (cb.checked) ch[key] = true; else delete ch[key]; saveWeek({ checked: ch }); };
         row.append(cb, el("span", "nm", it.name), el("span", "qty", it.qty || ""));
+        if (it.check) {
+          const w = el("span", "for warnfor", "식단에서 이 재료를 못 찾았어요 · ");
+          const rm = el("button", "link", "빼기");
+          rm.onclick = (e) => { e.preventDefault(); const shopping = week.shopping.map((cc) => (cc.category === c.category ? { ...cc, items: cc.items.filter((x) => x.name !== it.name) } : cc)).filter((cc) => cc.items.length); saveWeek({ shopping }); };
+          w.append(rm); row.append(w);
+        }
         if (it.for) row.append(el("span", "for", it.for));
         col.append(row);
       });
@@ -1195,7 +1202,7 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
       `[기타 요청] ${s.extra || "없음"}`,
     ].join("\n");
   }
-  const shopRules = () => `장보기 목록은 아래 '만들 끼니'에 필요한 것만, 이 분량 기준(${servesRule()})으로 끼니별로 합산해서, 한국 마트 단위(g, 개, 팩, 봉, 단, 모, 마리)로. 소금·간장·설탕·식용유·참기름·깨·다진마늘 같은 기본 양념은 빼고 특별한 소스만. 집에 있는 재료는 빼. 각 품목의 for에는 쓰는 끼니("화 저녁, 목 아침"처럼). 카테고리는 다음 중에서만: ${CATS.map((c) => `"${c}"`).join(", ")}.`;
+  const shopRules = () => `장보기 목록은 아래 식단의 [재료: …]에 있는 재료로만 만들어(식단에 없는 재료를 새로 넣지 마). 아래 '만들 끼니'에 필요한 것만, 이 분량 기준(${servesRule()})으로 끼니별로 합산해서, 한국 마트 단위(g, 개, 팩, 봉, 단, 모, 마리)로. 소금·간장·설탕·식용유·참기름·깨·다진마늘 같은 기본 양념은 빼고 특별한 소스만. 집에 있는 재료는 빼. 각 품목의 for에는 쓰는 끼니("화 저녁, 목 아침"처럼). 카테고리는 다음 중에서만: ${CATS.map((c) => `"${c}"`).join(", ")}.`;
 
   // 그날 아이별 기관 메뉴를 한 줄로
   function kinderLine(i) {
@@ -1217,7 +1224,7 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
       let line = `${d} ${md(dates[i])} — ${lbNote}${kin} | 만들 끼니: ${on.map((m) => m.l).join(", ") || "없음"}${off.length ? ` | 빠지는 끼니: ${off.join(", ")}` : ""}`;
       if (withPlan) {
         const p = week?.days?.find?.((x) => x.day === d) || {};
-        line += " | 식단: " + on.map((m) => `${m.l} ${p[m.k]?.menu || "?"}${p[m.k]?.sides?.length ? `(${p[m.k].sides.join(", ")})` : ""}`).join(" / ");
+        line += " | 식단: " + on.map((m) => `${m.l} ${p[m.k]?.menu || "?"}${p[m.k]?.sides?.length ? `(${p[m.k].sides.join(", ")})` : ""}${mealIngs(d, m.k).length ? ` [재료: ${mealIngs(d, m.k).join(", ")}]` : ""}`).join(" / ");
       }
       return line;
     }).join("\n");
@@ -1264,13 +1271,13 @@ ${slotLines(false)}
 7. 집에 있는 재료를 먼저 쓰고, 재료를 여러 끼에 나눠 써서 남는 재료가 적게.
 8. avoided는 15자 이내로 아주 짧게 (예: "점심 닭곰탕 피해 생선"). 유치원 정보가 없는 날은 빈 문자열.
 9. 장보기 목록은 따로 만들어. 이번 답에는 넣지 마.
-10. sides는 반찬·국 0~2개, 메뉴 이름은 짧게. 팁·설명은 쓰지 마(레시피에서 따로 써).
+10. sides는 반찬·국 0~2개, 메뉴 이름은 짧게. 팁·설명은 쓰지 마(레시피에서 따로 써). ing에는 그 끼니(반찬·국 포함)에 실제로 들어가는 주재료 이름만 2~6개(기본 양념 제외).
 ${NUTRITION_RULE}
 ${LUNCH_RULE}
 ${LUNCHBOX_RULE}${fridgeRule() ? "\n11. " + fridgeRule() : ""}
 
 JSON 하나로만 답해. 형식:
-{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"p":"달걀","min":10},"snack":null,"dinner":{"menu":"","sides":[""],"p":"닭","min":20},"lunch":null,"lunchbox":null,"avoided":""}],
+{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"p":"달걀","ing":["식빵","달걀","사과"],"min":10},"snack":null,"dinner":{"menu":"","sides":[""],"p":"닭","ing":["닭다리살","양파","애호박","두부"],"min":20},"lunch":null,"lunchbox":null,"avoided":""}],
  "notes":"주말에 미리 해두면 좋은 준비 한 문장"}
 days는 월~일 7개.`;
 
@@ -1356,13 +1363,13 @@ ${familyBlock()}
 ${meal === "dinner" ? `[다음 날 아이들 기관 점심] ${i < 4 ? kinderLine(i + 1) : "등원 없음"}` : meal === "snack" ? "기관 다녀온 뒤 집 간식, 5~10분 준비." : meal === "lunch" ? "집 점심: 그날 아침·저녁과 겹치지 않게, 20분 안팎." : meal === "lunchbox" ? `소풍 도시락(${week.lunchbox?.[d] || "소풍"}): 식어도 맛있고 손이나 포크로 먹기 쉽게, 상하기 쉬운 재료는 피해서. 도시락 먹는 아이는 이날 기관 점심을 안 먹어.` : "아침이니 10~15분 이내."}
 아이들은 기관에서 먹은 것과 주재료·요리 형태·맛이 비슷하면 안 먹으니 겹치지 않게 해. 새 메뉴에 필요한 재료 중 장보기 목록에 없을 법한 것은 tip에 적지 말고 그대로 둬.
 ${meal === "snack" ? "" : NUTRITION_RULE}
-JSON 하나로만 답해: {"menu":"","sides":[""],"p":"메인 단백질 한 단어","tip":"","min":10,"avoided":"무엇과 겹치지 않게 했는지 한 문장"}`;
+JSON 하나로만 답해: {"menu":"","sides":[""],"p":"메인 단백질 한 단어","ing":["주재료 2~6개"],"tip":"","min":10,"avoided":"무엇과 겹치지 않게 했는지 한 문장"}`;
     let newMenu = null;
     setBusy(true); btn.textContent = "바꾸는 중…";
     try {
       const m = await ask(prompt, { modelTier: "quick", cache: false });
       if (!m?.menu) throw { code: "invalid_json" };
-      const days = week.days.map((x) => x.day === d ? { ...x, [meal]: { menu: m.menu, sides: m.sides || [], p: m.p || "", tip: m.tip || "", min: m.min || null }, avoided: m.avoided || x.avoided } : x);
+      const days = week.days.map((x) => x.day === d ? { ...x, [meal]: { menu: m.menu, sides: m.sides || [], p: m.p || "", ing: m.ing || [], tip: m.tip || "", min: m.min || null }, avoided: m.avoided || x.avoided } : x);
       const recipes = { ...(week.recipes || {}) }; delete recipes[slotKey(i, meal)];
       await saveWeek({ days, shoppingStale: true, recipes });
       newMenu = m.menu;
@@ -1383,13 +1390,37 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
     setBusy(true); setStatus("장보기 목록을 다시 만드는 중이에요…");
     try {
       const r = await ask(prompt, { modelTier: "quick", cache: false });
-      const shopping = normShopping(r?.shopping ?? r);
+      const shopping = verifyShopping(normShopping(r?.shopping ?? r));
       if (!shopping.length) throw { code: "invalid_json" };
       await saveWeek({ shopping, usesPantry: r.usesPantry || week.usesPantry || [], checked: {}, shoppingStale: false });
       setStatus("장보기 목록을 새로 만들었어요.");
       return true;
     } catch (e) { setStatus("장보기 목록을 만들지 못했어요. 위의 '장보기 목록 만들기'를 다시 눌러 주세요. " + errText(e), true); return false; }
     finally { setBusy(false); }
+  }
+  // 끼니에 들어가는 재료: AI가 준 ing + 레시피 재료
+  function mealIngs(d, mk) {
+    const plan = week?.days?.find?.((x) => x.day === d)?.[mk];
+    const rec = week?.recipes?.[`${d}-${mk}`];
+    return [...new Set([...(plan?.ing || []), ...(rec?.ingredients || []).map((x) => x.name)].filter(Boolean))];
+  }
+  // 장보기 품목이 실제로 들어가는 끼니를 식단에서 찾아 'for'를 고쳐 적고, 어디에도 없으면 표시
+  function verifyShopping(cats) {
+    const meals = [];
+    DAYS.forEach((d, i) => ALL_MEALS.forEach((m) => {
+      if (!isOn(i, m.k)) return;
+      const plan = week?.days?.find?.((x) => x.day === d)?.[m.k];
+      if (!plan?.menu) return;
+      meals.push({ label: `${d} ${m.l}`, text: [plan.menu, ...(plan.sides || []), ...mealIngs(d, m.k)].join(" ").replace(/\s/g, "") });
+    }));
+    const words = (name) => name.replace(/\(.*?\)/g, " ").split(/[\s,·/]+/).map((w) => w.replace(/^(냉동|다진|생|국내산|무항생제|유기농)/, "")).filter((w) => w.length >= 2);
+    cats.forEach((c) => c.items.forEach((it) => {
+      const ws = words(it.name);
+      const hit = meals.filter((m) => ws.some((w) => m.text.includes(w)));
+      if (hit.length) { it.for = hit.map((m) => m.label).join(", "); delete it.check; }
+      else { it.check = true; it.for = ""; }
+    }));
+    return cats;
   }
   // AI 답 모양이 조금 달라도 받아들이기: 배열/객체, 문자열 품목 등
   function normShopping(raw) {
@@ -1571,7 +1602,7 @@ ${LUNCHBOX_RULE}
 ${fridgeRule()}
 4. 바꾸지 않는 끼니는 changes에 넣지 마. key는 위 목록 그대로.
 ${NUTRITION_RULE}
-JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""],"p":"소","tip":"","min":20}],"avoided":{"화":"무엇과 겹치지 않게 했는지 한 문장"},"notes":"새 재료 보관·손질 팁 한 문장"}`;
+JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""],"p":"소","ing":["소불고기","양파","당근"],"tip":"","min":20}],"avoided":{"화":"무엇과 겹치지 않게 했는지 한 문장"},"notes":"새 재료 보관·손질 팁 한 문장"}`;
     let changed = [];
     setBusy(true); setStatus("새 재료로 남은 식단을 다시 짜는 중이에요…");
     try {
@@ -1583,7 +1614,7 @@ JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""]
       r.changes.forEach((c) => {
         if (!keys.includes(c?.key) || !c.menu) return;
         const [d, m] = c.key.split("-"); const day = days.find((x) => x.day === d);
-        day[m] = { menu: c.menu, sides: c.sides || [], p: c.p || "", tip: c.tip || "", min: c.min || null };
+        day[m] = { menu: c.menu, sides: c.sides || [], p: c.p || "", ing: c.ing || [], tip: c.tip || "", min: c.min || null };
         if (r.avoided?.[d]) day.avoided = r.avoided[d];
         delete recipes[c.key]; changed.push(c.key);
       });
