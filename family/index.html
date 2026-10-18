@@ -727,6 +727,8 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
     const summary = Object.entries(count).map(([k, n]) => `${k} ${n}`).join(" · ") || "없음";
     return { issues, summary };
   }
+  // 지금 식단의 메뉴 목록 — 준비 팁이 이 식단에 맞는지 확인할 때 씀
+  function planSig() { return (week?.days || []).map((d) => ALL_MEALS.map((m) => d[m.k]?.menu || "").join("|")).join("/"); }
   function renderBanners() {
     const b = $("banners"); b.replaceChildren();
     if (booted && !kids().length) {
@@ -759,7 +761,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
       s2.append(el("span", null, (bal.issues.length ? `영양 균형 확인: ${bal.issues.join(", ")}. 그 끼니에서 '다른 메뉴로'를 눌러 바꿔 보세요. ` : "") + `이번 주 저녁 단백질 · ${bal.summary}`));
       b.append(s2);
     }
-    if (week?.notes) b.append(el("div", "banner note", "준비 팁 · " + week.notes));
+    if (week?.notes && week.notesSig === planSig()) b.append(el("div", "banner note", "준비 팁 · " + week.notes));
   }
 
   function planFor(key) {
@@ -1277,8 +1279,7 @@ ${LUNCH_RULE}
 ${LUNCHBOX_RULE}${fridgeRule() ? "\n11. " + fridgeRule() : ""}
 
 JSON 하나로만 답해. 형식:
-{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"p":"달걀","ing":["식빵","달걀","사과"],"min":10},"snack":null,"dinner":{"menu":"","sides":[""],"p":"닭","ing":["닭다리살","양파","애호박","두부"],"min":20},"lunch":null,"lunchbox":null,"avoided":""}],
- "notes":"주말에 미리 해두면 좋은 준비 한 문장"}
+{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"p":"메인 단백질","ing":["주재료","주재료"],"min":10},"snack":null,"dinner":{"menu":"","sides":[""],"p":"메인 단백질","ing":["주재료","주재료","주재료"],"min":20},"lunch":null,"lunchbox":null,"avoided":""}]}
 days는 월~일 7개.`;
 
     let ok = false, shown = 0;
@@ -1297,7 +1298,7 @@ days는 월~일 7개.`;
       const kinder = weekDates(weekId).slice(0, 5).map((d, i) => ({ date: ymd(d), items: kinderFor(i) }));
       await saveWeek({
         example: false, days: res.days, shopping: [], usesPantry: res.usesPantry || [],
-        notes: res.notes || "", kinder, checked: {}, shoppingStale: true, recipes: {},
+        notes: "", kinder, checked: {}, shoppingStale: true, recipes: {},
       });
       ok = true;
     } catch (e) { if (shown) { week = before; renderWeekTab(); } setStatus(errText(e), true); }
@@ -1386,13 +1387,13 @@ ${familyBlock()}
 ${slotLines(true)}
 ${shopRules()}
 ${fridgeRule()}
-JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":"","for":""}]}],"usesPantry":["감자 (화 저녁)"]}`;
+JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":"","for":""}]}],"usesPantry":["집 재료 (쓰는 끼니)"],"prep":"주말에 미리 해두면 좋은 준비 한 문장 — 위 식단에 실제로 있는 메뉴·재료만 언급"}`;
     setBusy(true); setStatus("장보기 목록을 다시 만드는 중이에요…");
     try {
       const r = await ask(prompt, { modelTier: "quick", cache: false });
       const shopping = verifyShopping(normShopping(r?.shopping ?? r));
       if (!shopping.length) throw { code: "invalid_json" };
-      await saveWeek({ shopping, usesPantry: r.usesPantry || week.usesPantry || [], checked: {}, shoppingStale: false });
+      await saveWeek({ shopping, usesPantry: r.usesPantry || week.usesPantry || [], checked: {}, shoppingStale: false, notes: r.prep || "", notesSig: planSig() });
       setStatus("장보기 목록을 새로 만들었어요.");
       return true;
     } catch (e) { setStatus("장보기 목록을 만들지 못했어요. 위의 '장보기 목록 만들기'를 다시 눌러 주세요. " + errText(e), true); return false; }
@@ -1602,7 +1603,7 @@ ${LUNCHBOX_RULE}
 ${fridgeRule()}
 4. 바꾸지 않는 끼니는 changes에 넣지 마. key는 위 목록 그대로.
 ${NUTRITION_RULE}
-JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""],"p":"소","ing":["소불고기","양파","당근"],"tip":"","min":20}],"avoided":{"화":"무엇과 겹치지 않게 했는지 한 문장"},"notes":"새 재료 보관·손질 팁 한 문장"}`;
+JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""],"p":"메인 단백질","ing":["주재료","주재료"],"tip":"","min":20}],"avoided":{"화":"15자 이내"}}`;
     let changed = [];
     setBusy(true); setStatus("새 재료로 남은 식단을 다시 짜는 중이에요…");
     try {
@@ -1619,7 +1620,7 @@ JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""]
         delete recipes[c.key]; changed.push(c.key);
       });
       if (!changed.length) throw { code: "invalid_json" };
-      await saveWeek({ days, recipes, off, shoppingStale: true, notes: [week.notes, r.notes].filter(Boolean).join(" ") });
+      await saveWeek({ days, recipes, off, shoppingStale: true });
       $("replanBox").hidden = true; $("giftText").value = "";
     } catch (e) { setStatus(errText(e), true); }
     finally { setBusy(false); }
