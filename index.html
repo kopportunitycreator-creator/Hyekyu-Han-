@@ -236,6 +236,8 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 .dp[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .dp[aria-pressed="true"] small { color: var(--accent-ink); }
 .dp.all { flex: 1.3 1 0; font-size: 13px; font-weight: 700; }
+.pchip { justify-self: start; font-size: 11px; color: var(--accent); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
+.pchip.weak { color: var(--warn); border-color: var(--warn); }
 .credit { text-align: center; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: .02em; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
@@ -555,6 +557,32 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
     $("generate").textContent = week?.fridgeMode ? "냉파 식단 짜기" : "이번 주 식단 짜기";
   }
 
+  // 메인 단백질: AI가 적은 p, 없으면 메뉴 이름에서 추정
+  const PROTEINS = [["소", /소고기|한우|우둔|홍두깨|차돌|불고기|갈비|사태|양지|우삼겹/], ["돼지", /돼지|삼겹|목살|앞다리|제육|돈육|수육|항정/], ["닭", /닭|치킨/], ["오리", /오리/],
+    ["생선", /생선|연어|고등어|갈치|삼치|동태|대구|가자미|조기|참치|명태|임연수|꽁치|코다리|민어/], ["해산물", /새우|오징어|조개|홍합|바지락|낙지|문어|게살|전복|굴|관자|주꾸미/], ["두부", /두부|유부|콩불고기|콩고기/], ["달걀", /달걀|계란|에그|오믈렛|스크램블/]];
+  function proteinOf(plan) {
+    if (!plan) return "";
+    const text = [plan.p, plan.menu, ...(plan.sides || [])].filter(Boolean).join(" ");
+    const hits = PROTEINS.filter(([, re]) => re.test(text)).map(([k]) => k);
+    const main = hits.find((k) => k !== "달걀");
+    return main || hits[0] || "";
+  }
+  function balanceCheck() {
+    if (!Array.isArray(week?.days) || !week.days.length || week.example) return null;
+    const issues = [], count = {};
+    DAYS.forEach((d, i) => {
+      if (!isOn(i, "dinner")) return;
+      const plan = week.days.find((x) => x.day === d)?.dinner;
+      if (!plan?.menu) return;
+      const pr = proteinOf(plan);
+      if (!pr) issues.push(`${d} 저녁 메인 단백질이 안 보여요`);
+      else if (pr === "달걀") issues.push(`${d} 저녁이 달걀 위주예요`);
+      if (pr) count[pr] = (count[pr] || 0) + 1;
+    });
+    Object.entries(count).forEach(([k, n]) => { if (n > 2 && k !== "달걀") issues.push(`저녁 ${k}이(가) ${n}번이에요`); });
+    const summary = Object.entries(count).map(([k, n]) => `${k} ${n}`).join(" · ") || "없음";
+    return { issues, summary };
+  }
   function renderBanners() {
     const b = $("banners"); b.replaceChildren();
     if (booted && !db) b.append(el("div", "banner stale", "claude.ai에 로그인한 상태로 열어야 가족이 함께 쓰는 식단과 장보기 체크가 보여요. 지금은 이 기기에만 저장돼요."));
@@ -576,6 +604,12 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
       const s = el("div", "banner note"); s.append(el("span", null, `레시피는 '레시피 보기'를 누를 때 바로 써요. 장 보기 전에 미리 다 받아두려면 →`));
       const btn = el("button", "ghost", `레시피 ${noRecipe.length}개 모두 만들기`); btn.onclick = () => makeRecipes(noRecipe); btn.disabled = busy;
       s.append(btn); b.append(s);
+    }
+    const bal = balanceCheck();
+    if (bal) {
+      const s2 = el("div", "banner " + (bal.issues.length ? "stale" : "note"));
+      s2.append(el("span", null, (bal.issues.length ? `영양 균형 확인: ${bal.issues.join(", ")}. 그 끼니에서 '다른 메뉴로'를 눌러 바꿔 보세요. ` : "") + `이번 주 저녁 단백질 · ${bal.summary}`));
+      b.append(s2);
     }
     if (week?.notes) b.append(el("div", "banner note", "준비 팁 · " + week.notes));
   }
@@ -711,6 +745,8 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
     if (plan?.menu) {
       const t = el("span", "menu", plan.menu);
       if (plan.min) t.append(el("span", "min", plan.min + "분"));
+      const pr = proteinOf(plan);
+      if (pr && m.k !== "snack") c.append(el("span", "pchip" + (pr === "달걀" && m.k !== "breakfast" ? " weak" : ""), "단백질 " + (plan.p || pr)));
       c.append(t);
       if (plan.sides?.length) c.append(el("span", "sides", plan.sides.join(" · ")));
       if (plan.tip) c.append(el("span", "tip", plan.tip));
@@ -1028,11 +1064,12 @@ ${slotLines(false)}
 8. avoided는 15자 이내로 아주 짧게 (예: "점심 닭곰탕 피해 생선"). 유치원 정보가 없는 날은 빈 문자열.
 9. 장보기 목록은 따로 만들어. 이번 답에는 넣지 마.
 10. sides는 반찬·국 0~2개, 메뉴 이름은 짧게. 팁·설명은 쓰지 마(레시피에서 따로 써).
+${NUTRITION_RULE}
 ${LUNCH_RULE}
 ${LUNCHBOX_RULE}${fridgeRule() ? "\n11. " + fridgeRule() : ""}
 
 JSON 하나로만 답해. 형식:
-{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"min":10},"snack":null,"dinner":{"menu":"","sides":[""],"min":20},"lunch":null,"lunchbox":null,"avoided":""}],
+{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"p":"달걀","min":10},"snack":null,"dinner":{"menu":"","sides":[""],"p":"닭","min":20},"lunch":null,"lunchbox":null,"avoided":""}],
  "notes":"주말에 미리 해두면 좋은 준비 한 문장"}
 days는 월~일 7개.`;
 
@@ -1117,13 +1154,14 @@ ${familyBlock()}
 [그날 유치원] 점심 ${k.lunch || "없음"} / 간식 ${k.snack || "없음"} / 메이플베어 ${k.mb || "없음"}
 ${meal === "dinner" ? `[다음 날 유치원 점심] ${nk.lunch || "없음"}` : meal === "snack" ? "유치원 다녀온 뒤 집 간식, 5~10분 준비." : meal === "lunch" ? "집 점심: 그날 아침·저녁과 겹치지 않게, 20분 안팎." : meal === "lunchbox" ? `소풍 도시락(${week.lunchbox?.[d] || "소풍"}): 식어도 맛있고 손이나 포크로 먹기 쉽게, 상하기 쉬운 재료는 피해서. 도시락 먹는 아이는 이날 기관 점심을 안 먹어.` : "아침이니 10~15분 이내."}
 해린이는 유치원에서 먹은 것과 주재료·요리 형태·맛이 비슷하면 안 먹으니 겹치지 않게 해. 새 메뉴에 필요한 재료 중 장보기 목록에 없을 법한 것은 tip에 적지 말고 그대로 둬.
-JSON 하나로만 답해: {"menu":"","sides":[""],"tip":"","min":10,"avoided":"무엇과 겹치지 않게 했는지 한 문장"}`;
+${meal === "snack" ? "" : NUTRITION_RULE}
+JSON 하나로만 답해: {"menu":"","sides":[""],"p":"메인 단백질 한 단어","tip":"","min":10,"avoided":"무엇과 겹치지 않게 했는지 한 문장"}`;
     let newMenu = null;
     setBusy(true); btn.textContent = "바꾸는 중…";
     try {
       const m = await ask(prompt, { modelTier: "quick", cache: false });
       if (!m?.menu) throw { code: "invalid_json" };
-      const days = week.days.map((x) => x.day === d ? { ...x, [meal]: { menu: m.menu, sides: m.sides || [], tip: m.tip || "", min: m.min || null }, avoided: m.avoided || x.avoided } : x);
+      const days = week.days.map((x) => x.day === d ? { ...x, [meal]: { menu: m.menu, sides: m.sides || [], p: m.p || "", tip: m.tip || "", min: m.min || null }, avoided: m.avoided || x.avoided } : x);
       const recipes = { ...(week.recipes || {}) }; delete recipes[slotKey(i, meal)];
       await saveWeek({ days, shoppingStale: true, recipes });
       newMenu = m.menu;
@@ -1200,6 +1238,7 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
     });
     return c;
   }
+  const NUTRITION_RULE = "- 영양 균형(가장 중요): 해린이는 탄단지(탄수화물·단백질·지방) 비율이 중요해. 저녁은 매번 탄수화물(밥·면·감자 등) + 메인 단백질(소·돼지·닭·오리·생선·해산물·두부 중 하나 이상) + 채소 반찬이나 국으로 구성해. 달걀은 아침·간식·곁들임으로만 쓰고 저녁 메인 단백질로는 쓰지 마. 아침도 탄수화물 + 단백질(달걀·유제품·두부·고기 등) + 과일이나 채소로. 한 주 저녁 메인 단백질은 소·돼지·닭·생선·해산물·두부를 고루 돌려 같은 것이 2번을 넘지 않게. 각 끼니의 p에는 메인 단백질을 한 단어로(예: 닭, 고등어, 두부).";
   const LUNCH_RULE = "- 점심(lunch)은 '만들 끼니'에 점심이 있는 날만 짜(주로 토·일). 가족이 같이 먹는 집 점심으로 그날 아침·저녁과 겹치지 않게, 20분 안팎. 점심이 있는 날은 하루 요리 시간을 조금 넘어도 돼(최대 1.5배).";
   const LUNCHBOX_RULE = "- 도시락(lunchbox)은 '만들 끼니'에 도시락이 있는 날만 짜. 소풍·체험학습에 아이가 들고 가는 점심이야. 식어도 맛있고 손이나 포크로 먹기 쉽게(김밥·주먹밥·유부초밥·샌드위치 등), 상하기 쉬운 재료(마요네즈 버무림, 날것, 크림)는 피하고, 아침에 준비하니 그날 조리 시간에 포함해. 도시락 날 그 아이의 기관 점심은 겹침 대상에서 빼고, 그날 아침과는 메뉴가 겹치지 않게.";
 
@@ -1257,7 +1296,8 @@ ${LUNCH_RULE}
 ${LUNCHBOX_RULE}
 ${fridgeRule()}
 4. 바꾸지 않는 끼니는 changes에 넣지 마. key는 위 목록 그대로.
-JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""],"tip":"","min":20}],"avoided":{"화":"무엇과 겹치지 않게 했는지 한 문장"},"notes":"새 재료 보관·손질 팁 한 문장"}`;
+${NUTRITION_RULE}
+JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""],"p":"소","tip":"","min":20}],"avoided":{"화":"무엇과 겹치지 않게 했는지 한 문장"},"notes":"새 재료 보관·손질 팁 한 문장"}`;
     let changed = [];
     setBusy(true); setStatus("새 재료로 남은 식단을 다시 짜는 중이에요…");
     try {
@@ -1269,7 +1309,7 @@ JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""]
       r.changes.forEach((c) => {
         if (!keys.includes(c?.key) || !c.menu) return;
         const [d, m] = c.key.split("-"); const day = days.find((x) => x.day === d);
-        day[m] = { menu: c.menu, sides: c.sides || [], tip: c.tip || "", min: c.min || null };
+        day[m] = { menu: c.menu, sides: c.sides || [], p: c.p || "", tip: c.tip || "", min: c.min || null };
         if (r.avoided?.[d]) day.avoided = r.avoided[d];
         delete recipes[c.key]; changed.push(c.key);
       });
