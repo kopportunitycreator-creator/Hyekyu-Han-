@@ -453,6 +453,14 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
       if (db) { try { const s = await db.doc(dbPath(path)).get(); return s.exists ? s.data() : null; } catch { return null; } }
       return LS.get(path);
     },
+    async merge(path, patch) {
+      if (db) {
+        const ref = db.doc(dbPath(path));
+        try { return await ref.update(patch); }
+        catch (e) { if (e?.code === "invalid_argument") { const cur = await ref.get(); if (!cur.exists) return ref.set(patch); } throw e; }
+      }
+      const next = { ...(LS.get(path) || {}), ...patch }; LS.set(path, next); listeners[path]?.(next);
+    },
     async set(path, data) {
       if (db) return db.doc(dbPath(path)).set(data);
       LS.set(path, data); listeners[path]?.(data);
@@ -467,7 +475,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
   let unsubWeek = null, unsubMonth = null;
   let sample = null, busy = false, booted = false;
   let openRecipe = null;
-  let selDay = null; // 표에 보여줄 요일 ("all"이면 일주일 전체) // slot key of the recipe shown under its day
+  let selDay = null; // 보여줄 요일, 또는 "shop"이면 장보기 목록 // slot key of the recipe shown under its day
   const files = { lunch: [], mb: [], fridge: [] };
 
   // ---------- tabs ----------
@@ -494,7 +502,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
   }
   async function saveSettings(patch, msgEl = $("prefsSaved")) {
     settings = { ...settings, ...patch };
-    try { await store.set("settings/family", settings); flash(msgEl, true); } catch { flash(msgEl, false); }
+    try { await store.merge("settings/family", patch); flash(msgEl, true); } catch { flash(msgEl, false); }
     applyFamilyLabels(); renderWeekTab(); renderGroupPicker(); renderMonth();
   }
   PREF_IDS.forEach((k) => $(k).addEventListener("change", () => {
@@ -704,9 +712,10 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
       const btn = el("button", "ghost", "기관 식단표 넣기"); btn.onclick = () => { openMonth(ym(parseYmd(weekId))); showTab("month"); };
       s.append(btn); b.append(s);
     }
-    if (week?.shoppingStale) {
-      const s = el("div", "banner stale"); s.append(el("span", null, "바뀐 끼니가 장보기 목록에 아직 반영되지 않았어요."));
-      const btn = el("button", "ghost", "장보기 목록 다시 만들기"); btn.onclick = rebuildShopping; btn.disabled = busy || !sample;
+    const noShop = Array.isArray(week?.days) && week.days.length && !week.example && !(week.shopping || []).length;
+    if (week?.shoppingStale || noShop) {
+      const s = el("div", "banner stale"); s.append(el("span", null, noShop ? "장보기 목록이 아직 없어요." : "바뀐 끼니가 장보기 목록에 아직 반영되지 않았어요."));
+      const btn = el("button", "ghost", noShop ? "장보기 목록 만들기" : "장보기 목록 다시 만들기"); btn.onclick = rebuildShopping; btn.disabled = busy || !sample;
       s.append(btn); b.append(s);
     }
     const noRecipe = missingRecipeKeys();
@@ -776,16 +785,17 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
       const b = el("button", "dp" + (ymd(dates[i]) === todayStr ? " today" : ""));
       b.append(el("b", null, d), el("small", null, String(dates[i].getDate())));
       b.setAttribute("aria-pressed", String(selDay === d)); b.setAttribute("aria-label", `${d}요일 ${md(dates[i])}만 보기`);
-      b.onclick = () => { selDay = d; renderWeek(); };
+      b.onclick = () => { selDay = d; renderWeek(); renderShop(); };
       box.append(b);
     });
-    const all = el("button", "dp all", "전체"); all.setAttribute("aria-pressed", String(selDay === "all"));
-    all.onclick = () => { selDay = "all"; renderWeek(); };
+    const all = el("button", "dp all", "장보기"); all.setAttribute("aria-pressed", String(selDay === "shop"));
+    all.onclick = () => { selDay = "shop"; renderWeek(); renderShop(); };
     box.append(all);
   }
   function renderWeek() {
     renderDayPicker(); renderBaby();
     const box = $("week"); box.replaceChildren();
+    box.hidden = selDay === "shop"; if (box.hidden) return;
     const head = el("div", "week-head");
     ["", "기관 메뉴", "아침", "점심", "간식", "저녁"].forEach((t) => head.append(el("div", null, t)));
     box.append(head);
@@ -875,7 +885,13 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
   function renderShop() {
     const box = $("shop"); box.replaceChildren();
     const cats = week?.shopping;
-    if (!Array.isArray(cats) || !cats.length) { box.hidden = true; return; }
+    if (selDay !== "shop") { box.hidden = true; return; }
+    if (!Array.isArray(cats) || !cats.length) {
+      box.hidden = false;
+      box.append(el("h2", null, "장보기 목록"), el("p", "muted small", week?.days?.length ? "장보기 목록이 아직 없어요. 위의 '장보기 목록 만들기'를 눌러 주세요." : "식단을 짜면 장보기 목록이 여기에 생겨요."));
+      if (week?.usesPantry?.length) { const pu = el("p", "pantry-use"); pu.append(el("b", null, "집에 있는 재료로 쓰는 것 ")); pu.append(document.createTextNode(week.usesPantry.join(", "))); box.append(pu); }
+      return;
+    }
     box.hidden = false;
     const checked = week.checked || {};
     const all = cats.flatMap((c) => (c.items || []).map((it) => c.category + "|" + it.name));
@@ -1218,13 +1234,13 @@ days는 월~일 7개.`;
       const kinder = weekDates(weekId).slice(0, 5).map((d, i) => ({ date: ymd(d), items: kinderFor(i) }));
       await saveWeek({
         example: false, days: res.days, shopping: [], usesPantry: res.usesPantry || [],
-        notes: res.notes || "", kinder, checked: {}, shoppingStale: false, recipes: {},
+        notes: res.notes || "", kinder, checked: {}, shoppingStale: true, recipes: {},
       });
       ok = true;
     } catch (e) { setStatus(errText(e), true); }
     finally { setBusy(false); }
-    if (ok) await rebuildShopping();
-    if (ok && !busy) setStatus("완성! 끼니의 '레시피 보기'를 누르면 그 레시피를 바로 써요. 마음에 안 드는 끼니는 '다른 메뉴로'로 바꿀 수 있어요.");
+    const shopOk = ok && await rebuildShopping();
+    if (shopOk && !busy) setStatus("완성! 끼니의 '레시피 보기'를 누르면 그 레시피를 바로 써요. 마음에 안 드는 끼니는 '다른 메뉴로'로 바꿀 수 있어요.");
   }
 
   // 레시피: 하루 단위로 나눠서 요청 (한 번에 너무 길어지지 않게)
@@ -1310,11 +1326,21 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
     setBusy(true); setStatus("장보기 목록을 다시 만드는 중이에요…");
     try {
       const r = await ask(prompt, { modelTier: "quick", cache: false });
-      if (!Array.isArray(r?.shopping)) throw { code: "invalid_json" };
-      await saveWeek({ shopping: r.shopping, usesPantry: r.usesPantry || week.usesPantry || [], checked: {}, shoppingStale: false });
+      const shopping = normShopping(r?.shopping ?? r);
+      if (!shopping.length) throw { code: "invalid_json" };
+      await saveWeek({ shopping, usesPantry: r.usesPantry || week.usesPantry || [], checked: {}, shoppingStale: false });
       setStatus("장보기 목록을 새로 만들었어요.");
-    } catch (e) { setStatus(errText(e), true); }
+      return true;
+    } catch (e) { setStatus("장보기 목록을 만들지 못했어요. 위의 '장보기 목록 만들기'를 다시 눌러 주세요. " + errText(e), true); return false; }
     finally { setBusy(false); }
+  }
+  // AI 답 모양이 조금 달라도 받아들이기: 배열/객체, 문자열 품목 등
+  function normShopping(raw) {
+    let cats = Array.isArray(raw) ? raw : raw && typeof raw === "object" ? Object.entries(raw).filter(([k]) => k !== "usesPantry").map(([category, items]) => (Array.isArray(items) ? { category, items } : items)) : [];
+    return cats.filter((c) => c && typeof c === "object").map((c) => ({
+      category: c.category || c.name || c.title || "기타",
+      items: (c.items || c.list || []).map((it) => (typeof it === "string" ? { name: it, qty: "", for: "" } : { name: it?.name || it?.item || "", qty: it?.qty || it?.amount || "", for: it?.for || "" })).filter((it) => it.name),
+    })).filter((c) => c.items.length);
   }
   $("generate").onclick = generate;
 
@@ -1342,8 +1368,8 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
         if (d.newFood) ms.append(el("div", "newfood", `새 재료: ${d.newFood} (오전에 조금, 2~3일 반응 보기)`));
         row.append(ms); list.append(row);
       });
-      box.append(list);
-      if (plan.prep?.length) { box.append(el("h3", null, "큐브 준비")); const ol = el("ol", "steps"); plan.prep.forEach((x) => ol.append(el("li", null, x))); box.append(ol); }
+      if (selDay !== "shop") box.append(list);
+      if (selDay !== "shop" && plan.prep?.length) { box.append(el("h3", null, "큐브 준비")); const ol = el("ol", "steps"); plan.prep.forEach((x) => ol.append(el("li", null, x))); box.append(ol); }
       if (plan.shopping?.length) {
         box.append(el("h3", null, "이유식 장보기"));
         const ul = el("div", "cat");
@@ -1355,7 +1381,7 @@ JSON 하나로만 답해: {"shopping":[{"category":"","items":[{"name":"","qty":
         });
         box.append(ul);
       }
-      if (plan.tips) box.append(el("div", "kidtip", plan.tips));
+      if (selDay !== "shop" && plan.tips) box.append(el("div", "kidtip", plan.tips));
     });
     if (babies.length) box.append(el("p", "hint", "이유식 양과 진행 속도는 아이 컨디션과 소아과 안내에 맞춰 조절해 주세요."));
   }
