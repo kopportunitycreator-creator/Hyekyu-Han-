@@ -884,7 +884,7 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
     setBusy(true); mStatus("식단표를 읽는 중이에요…");
     try {
       const r = await ask(prompt, {
-        images: images.length ? images : undefined, modelTier: "complex", cache: false,
+        images: images.length ? images : undefined, modelTier: "default", cache: false,
         onText: ({ text }) => mStatus(`식단표를 읽는 중이에요… (${text.length.toLocaleString()}자)`),
       });
       if (!Array.isArray(r?.menu)) throw { code: "invalid_json" };
@@ -908,11 +908,13 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
 
   // ---------- Claude ----------
   function setStatus(t, err) { const s = $("status"); s.textContent = t || ""; s.classList.toggle("err", !!err); if (busy && t) $("busyText").textContent = t; }
-  let abortCtl = null;
+  let abortCtl = null, wakeLock = null;
   // AI 작업 중에는 화면 아래에 진행 상황과 '멈추기'를 보여줌 (스크롤해도 보이게)
   const ask = (prompt, opts = {}) => sample.json(prompt, abortCtl ? { ...opts, signal: abortCtl.signal } : opts);
   function setBusy(on) {
     busy = on;
+    if (on) { navigator.wakeLock?.request("screen").then((l) => { wakeLock = l; }).catch(() => {}); }
+    else { wakeLock?.release?.().catch?.(() => {}); wakeLock = null; }
     abortCtl = on ? new AbortController() : null;
     $("busybar").hidden = !on; if (on) $("busyText").textContent = "작업 중이에요…"; $("generate").disabled = on || !sample; $("extract").disabled = on || !sample; $("scanFridge").disabled = on || !sample;
     document.querySelectorAll(".meal .link, .banner.stale button").forEach((b) => (b.disabled = on));
@@ -924,6 +926,7 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
     if (c === "invalid_json") return "답을 정리하지 못했어요. 한 번 더 눌러 주세요.";
     if (c === "image_rejected") return "읽을 수 없는 사진이 있어요. JPG나 PNG로 다시 올려 주세요.";
     if (c === "cancelled") return "취소했어요.";
+    if (c === "upstream_error" || /connection|network|lost/i.test(e?.message || "")) return "연결이 끊겨서 멈췄어요. 화면을 켜둔 채 이 화면에 머물러서 다시 눌러 주세요. (1~2분 걸릴 수 있어요)";
     return "만들지 못했어요. 다시 시도해 주세요." + (e?.message ? ` (${e.message})` : "");
   }
 
@@ -988,14 +991,13 @@ ${slotLines(false)}
 6. 한 주 동안 같은 메인 메뉴를 반복하지 말고 단백질을 골고루. 해린이와 남편이 좋아하는 것을 골고루 넣어.
 7. 집에 있는 재료를 먼저 쓰고, 재료를 여러 끼에 나눠 써서 남는 재료가 적게. usesPantry에는 집 재료 중 이번 주에 쓰는 것과 쓰는 끼니.
 8. avoided에는 그날(과 다음 날) 유치원 메뉴 중 무엇과 겹치지 않게 했는지 한 문장. 유치원 정보가 없는 날은 빈 문자열.
-9. ${SHOP_RULES}
+9. 장보기 목록은 따로 만들어. 이번 답에는 넣지 마.
 10. sides는 반찬·국 0~3개, tip은 한 문장 이내(없으면 빈 문자열).
 ${LUNCH_RULE}
 ${LUNCHBOX_RULE}${fridgeRule() ? "\n11. " + fridgeRule() : ""}
 
 JSON 하나로만 답해. 형식:
 {"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"tip":"","min":10},"snack":null,"dinner":{"menu":"","sides":[""],"tip":"","min":20},"lunch":null,"lunchbox":null,"avoided":""}],
- "shopping":[{"category":"채소·과일","items":[{"name":"","qty":"","for":""}]}],
  "usesPantry":["감자 (화 저녁, 목 아침)"],
  "notes":"주말에 미리 해두면 좋은 준비 1~2문장"}
 days는 월~일 7개.`;
@@ -1004,18 +1006,19 @@ days는 월~일 7개.`;
     setBusy(true); setStatus("유치원 메뉴를 피해서 식단을 짜는 중이에요…");
     try {
       const res = await ask(prompt, {
-        modelTier: "complex", cache: false,
+        modelTier: "default", cache: false,
         onText: ({ text }) => setStatus(`식단을 짜는 중이에요… (${text.length.toLocaleString()}자)`),
       });
       if (!Array.isArray(res?.days) || res.days.length < 7) throw { code: "invalid_json" };
       const kinder = weekDates(weekId).slice(0, 5).map((d, i) => ({ date: ymd(d), ...(kinderFor(i) || {}) }));
       await saveWeek({
-        example: false, days: res.days, shopping: res.shopping || [], usesPantry: res.usesPantry || [],
+        example: false, days: res.days, shopping: [], usesPantry: res.usesPantry || [],
         notes: res.notes || "", kinder, checked: {}, shoppingStale: false, recipes: {},
       });
       ok = true;
     } catch (e) { setStatus(errText(e), true); }
     finally { setBusy(false); }
+    if (ok) await rebuildShopping();
     if (ok && await makeRecipes(missingRecipeKeys())) setStatus("완성! 끼니마다 '레시피'를 눌러 보세요. 마음에 안 드는 끼니는 '다른 메뉴로'로 바꿀 수 있어요.");
   }
 
@@ -1208,7 +1211,7 @@ JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""]
     let changed = [];
     setBusy(true); setStatus("새 재료로 남은 식단을 다시 짜는 중이에요…");
     try {
-      const r = await ask(prompt, { modelTier: "complex", cache: false,
+      const r = await ask(prompt, { modelTier: "default", cache: false,
         onText: ({ text }) => setStatus(`새 재료로 남은 식단을 다시 짜는 중이에요… (${text.length.toLocaleString()}자)`) });
       if (!Array.isArray(r?.changes)) throw { code: "invalid_json" };
       const days = DAYS.map((d) => ({ day: d, ...(week.days.find((x) => x.day === d) || {}) }));
@@ -1349,7 +1352,7 @@ JSON 하나로만 답해: {"changes":[{"key":"화-dinner","menu":"","sides":[""]
 JSON 하나로만 답해: {"items":[{"name":"","qty":"","where":"냉동","sure":true,"note":""}]}`;
     setBusy(true); $("scanFridge").disabled = true; fStatus("사진 속 재료를 찾는 중이에요…");
     try {
-      const r = await ask(prompt, { images, modelTier: "complex", cache: false,
+      const r = await ask(prompt, { images, modelTier: "default", cache: false,
         onText: ({ text }) => fStatus(`사진 속 재료를 찾는 중이에요… (${text.length.toLocaleString()}자)`) });
       if (!Array.isArray(r?.items)) throw { code: "invalid_json" };
       found = r.items.filter((x) => x?.name).map((x) => ({ ...x, keep: true }));
