@@ -1140,7 +1140,7 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
     if (c === "invalid_json") return "답을 정리하지 못했어요. 한 번 더 눌러 주세요.";
     if (c === "image_rejected") return "읽을 수 없는 사진이 있어요. JPG나 PNG로 다시 올려 주세요.";
     if (c === "cancelled") return "취소했어요.";
-    if (c === "upstream_error" || /connection|network|lost/i.test(e?.message || "")) return "연결이 끊겨서 멈췄어요. 화면을 켜둔 채 이 화면에 머물러서 다시 눌러 주세요. (1~2분 걸릴 수 있어요)";
+    if (c === "upstream_error" || /connection|network|lost/i.test(e?.message || "")) return "연결이 끊겨서 멈췄어요. 화면을 켜둔 채 이 화면에 머물러서 다시 눌러 주세요.";
     return "만들지 못했어요. 다시 시도해 주세요." + (e?.message ? ` (${e.message})` : "");
   }
 
@@ -1187,6 +1187,21 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
     }).join("\n");
   }
 
+  // 스트리밍 중인 답에서 다 써진 요일만 꺼내기
+  function partialDays(text) {
+    const i = text.indexOf('"days"'); if (i < 0) return [];
+    const j = text.indexOf("[", i); if (j < 0) return [];
+    const out = []; let depth = 0, start = -1, inStr = false, esc = false;
+    for (let k = j + 1; k < text.length; k++) {
+      const ch = text[k];
+      if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true;
+      else if (ch === "{") { if (depth === 0) start = k; depth++; }
+      else if (ch === "}") { depth--; if (depth === 0 && start >= 0) { try { out.push(JSON.parse(text.slice(start, k + 1))); } catch {} start = -1; } }
+      else if (ch === "]" && depth === 0) break;
+    }
+    return out;
+  }
   async function generate() {
     if (!sample || busy) return;
     const total = DAYS.reduce((s, _, i) => s + ALL_MEALS.filter((m) => isOn(i, m.k)).length, 0);
@@ -1195,7 +1210,7 @@ JSON 하나로만 답해: {"menu":[{"date":"YYYY-MM-DD","lunch":"","snack":"","m
     const prevMenus = prev && !prev.example && Array.isArray(prev.days)
       ? prev.days.flatMap((d) => ALL_MEALS.map((m) => d[m.k]?.menu)).filter(Boolean).join(", ") : "";
 
-    const prompt = `너는 한국 가정의 주간 식단을 짜는 영양사야. ${weekLabel(weekId)} 한 주 식단과 장보기 목록을 만들어줘.
+    const prompt = `너는 한국 가정의 주간 식단을 짜는 영양사야. ${weekLabel(weekId)} 한 주 식단을 만들어줘.
 
 ${familyBlock()}
 [지난주에 먹은 메뉴 — 이번 주엔 반복 피하기] ${prevMenus || "(정보 없음)"}
@@ -1210,25 +1225,29 @@ ${slotLines(false)}
 4. 아침·간식·저녁 조리 시간 합계가 하루 ${cookMin()}분을 넘지 않게. 평일 아침은 10~15분 이내. 주말에 미리 손질해 두면 좋은 건 notes에.
 5. '만들 끼니'에 있는 것만 짜고, 없는 끼니는 null.
 6. 한 주 동안 같은 메인 메뉴를 반복하지 말고 단백질을 골고루. 아이와 배우자가 좋아하는 것을 골고루 넣어.
-7. 집에 있는 재료를 먼저 쓰고, 재료를 여러 끼에 나눠 써서 남는 재료가 적게. usesPantry에는 집 재료 중 이번 주에 쓰는 것과 쓰는 끼니.
-8. avoided에는 그날(과 다음 날) 유치원 메뉴 중 무엇과 겹치지 않게 했는지 한 문장. 유치원 정보가 없는 날은 빈 문자열.
+7. 집에 있는 재료를 먼저 쓰고, 재료를 여러 끼에 나눠 써서 남는 재료가 적게.
+8. avoided는 15자 이내로 아주 짧게 (예: "점심 닭곰탕 피해 생선"). 유치원 정보가 없는 날은 빈 문자열.
 9. 장보기 목록은 따로 만들어. 이번 답에는 넣지 마.
-10. sides는 반찬·국 0~3개, tip은 한 문장 이내(없으면 빈 문자열).
+10. sides는 반찬·국 0~2개, 메뉴 이름은 짧게. 팁·설명은 쓰지 마(레시피에서 따로 써).
 ${LUNCH_RULE}
 ${LUNCHBOX_RULE}${fridgeRule() ? "\n11. " + fridgeRule() : ""}
 
 JSON 하나로만 답해. 형식:
-{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"tip":"","min":10},"snack":null,"dinner":{"menu":"","sides":[""],"tip":"","min":20},"lunch":null,"lunchbox":null,"avoided":""}],
- "usesPantry":["감자 (화 저녁, 목 아침)"],
- "notes":"주말에 미리 해두면 좋은 준비 1~2문장"}
+{"days":[{"day":"월","breakfast":{"menu":"","sides":[""],"min":10},"snack":null,"dinner":{"menu":"","sides":[""],"min":20},"lunch":null,"lunchbox":null,"avoided":""}],
+ "notes":"주말에 미리 해두면 좋은 준비 한 문장"}
 days는 월~일 7개.`;
 
-    let ok = false;
+    let ok = false, shown = 0;
+    const before = week;
     setBusy(true); setStatus("식단을 쓰기 시작하는 중이에요…");
     try {
       const res = await ask(prompt, {
         modelTier: "quick", cache: false,
-        onText: ({ text }) => setStatus(`식단을 쓰는 중이에요… (${Math.min(7, (text.match(/"day"\s*:/g) || []).length)}/7일)`),
+        onText: ({ text }) => {
+          const ds = partialDays(text);
+          setStatus(`식단을 쓰는 중이에요… (${Math.min(7, ds.length)}/7일)`);
+          if (ds.length > shown) { shown = ds.length; week = { ...(before || { weekStart: weekId }), example: false, days: ds, recipes: {}, shopping: [] }; renderWeek(); }
+        },
       });
       if (!Array.isArray(res?.days) || res.days.length < 7) throw { code: "invalid_json" };
       const kinder = weekDates(weekId).slice(0, 5).map((d, i) => ({ date: ymd(d), items: kinderFor(i) }));
@@ -1237,7 +1256,7 @@ days는 월~일 7개.`;
         notes: res.notes || "", kinder, checked: {}, shoppingStale: true, recipes: {},
       });
       ok = true;
-    } catch (e) { setStatus(errText(e), true); }
+    } catch (e) { if (shown) { week = before; renderWeekTab(); } setStatus(errText(e), true); }
     finally { setBusy(false); }
     const shopOk = ok && await rebuildShopping();
     if (shopOk && !busy) setStatus("완성! 끼니의 '레시피 보기'를 누르면 그 레시피를 바로 써요. 마음에 안 드는 끼니는 '다른 메뉴로'로 바꿀 수 있어요.");
