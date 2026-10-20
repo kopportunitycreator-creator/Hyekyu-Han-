@@ -1,0 +1,929 @@
+<title>사주 노트</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700;900&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: a 만세력 notebook — people down the left margin, the selected person's 원국 as a four-column ledger, and a running conversation under it. */
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface-2: #e9ebf0;
+  --ink: #1a1e2b;
+  --muted: #5b6172;
+  --line: #d6d9e1;
+  --accent: #2f4a8a;      /* 쪽빛 */
+  --accent-ink: #ffffff;
+  --accent-soft: #e3e8f4;
+  --seal: #b8322a;        /* 인주 */
+  --warn: #8a5a00;
+  --warn-bg: #fbf1dc;
+  --wood: #2f7a4a;  --wood-bg: #e2f1e6;
+  --fire: #c0392b;  --fire-bg: #fbe4e1;
+  --earth: #9a6b12; --earth-bg: #f6ecd5;
+  --metal: #6b7280; --metal-bg: #eceef1;
+  --water: #1f4e8c; --water-bg: #e0e9f6;
+  --font-display: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12141b; --surface: #1a1d27; --surface-2: #232734; --ink: #e7e9ef; --muted: #9da3b4; --line: #323748;
+    --accent: #8ea8ec; --accent-ink: #0e1426; --accent-soft: #232c45; --seal: #f0786c; --warn: #f1c46b; --warn-bg: #3a2f18;
+    --wood: #6fcf93; --wood-bg: #1b3326; --fire: #f2867a; --fire-bg: #3d211f; --earth: #e2b55a; --earth-bg: #362c17;
+    --metal: #b5bcc9; --metal-bg: #2a2e38; --water: #86aef0; --water-bg: #1b2a44; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12141b; --surface: #1a1d27; --surface-2: #232734; --ink: #e7e9ef; --muted: #9da3b4; --line: #323748;
+  --accent: #8ea8ec; --accent-ink: #0e1426; --accent-soft: #232c45; --seal: #f0786c; --warn: #f1c46b; --warn-bg: #3a2f18;
+  --wood: #6fcf93; --wood-bg: #1b3326; --fire: #f2867a; --fire-bg: #3d211f; --earth: #e2b55a; --earth-bg: #362c17;
+  --metal: #b5bcc9; --metal-bg: #2a2e38; --water: #86aef0; --water-bg: #1b2a44; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 22px 56px; display: grid; gap: 18px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; margin: 0; text-wrap: balance; }
+h1 { font-size: 30px; line-height: 1.15; letter-spacing: -0.01em; }
+h2 { font-size: 20px; }
+h3 { font-size: 16px; }
+p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.seal { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--seal); color: var(--seal); border-radius: 6px; font-family: var(--font-display); font-weight: 900; font-size: 15px; line-height: 1; transform: rotate(-4deg); }
+
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 20px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.status { font-size: 13px; color: var(--muted); }
+.status.err { color: var(--seal); }
+
+.layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 820px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* people */
+.people { display: grid; gap: 8px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+.people-list { display: grid; gap: 6px; }
+@media (max-width: 820px) {
+  .people { position: static; }
+  .people-list { display: flex; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+  .person { flex: 0 0 auto; min-width: 150px; scroll-snap-align: start; }
+}
+.person { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; text-align: left; padding: 9px 11px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface); }
+.person:hover { border-color: var(--accent); }
+.person[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.person .dm { grid-row: span 2; width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 900; font-size: 20px; }
+.person .nm { font-weight: 700; }
+.person .sub { font-size: 12px; color: var(--muted); }
+.add { border: 1px dashed var(--line); background: transparent; border-radius: var(--r); padding: 10px; color: var(--accent); font-weight: 700; }
+.add:hover { border-color: var(--accent); background: var(--accent-soft); }
+.note { font-size: 12px; color: var(--muted); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.main { display: grid; gap: 18px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.head .who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.rel { font-size: 12px; padding: 1px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+.facts b { color: var(--ink); font-weight: 500; }
+.linkbtn { border: 0; background: none; padding: 2px 4px; color: var(--accent); font-weight: 500; font-size: 14px; }
+.linkbtn:hover { text-decoration: underline; }
+.linkbtn.danger { color: var(--seal); }
+.example { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.warns { display: grid; gap: 4px; }
+.warns p { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 6px 12px; font-size: 13px; }
+
+/* 원국 ledger */
+.ledger-scroll { overflow-x: auto; }
+.ledger { display: grid; grid-template-columns: 50px repeat(4, minmax(54px, 1fr)); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; min-width: 280px; }
+@media (max-width: 480px) { .panel { padding: 14px 12px; } .ledger > div { padding: 5px 2px; font-size: 12px; } }
+.ledger > div { padding: 6px 4px; text-align: center; border-top: 1px solid var(--line); font-size: 13px; display: grid; place-items: center; }
+.ledger > .rh { background: var(--surface-2); color: var(--muted); font-size: 12px; letter-spacing: 0.04em; }
+.ledger > .ch { background: var(--surface-2); font-weight: 700; border-top: 0; }
+.ledger > .ch.me { color: var(--accent); }
+.ledger .god { color: var(--muted); }
+.ledger .god.me { color: var(--accent); font-weight: 700; }
+.glyph { padding: 8px 4px !important; }
+.glyph .g { width: 100%; max-width: 76px; aspect-ratio: 1; border-radius: 10px; display: grid; place-items: center; align-content: center; gap: 0; }
+.glyph .g .hj { font-family: var(--font-display); font-weight: 900; font-size: clamp(26px, 6vw, 38px); line-height: 1.05; }
+.glyph .g .ko { font-size: 12px; opacity: 0.85; }
+.glyph .none { color: var(--muted); font-size: 12px; }
+.el-목 { background: var(--wood-bg); color: var(--wood); }
+.el-화 { background: var(--fire-bg); color: var(--fire); }
+.el-토 { background: var(--earth-bg); color: var(--earth); }
+.el-금 { background: var(--metal-bg); color: var(--metal); }
+.el-수 { background: var(--water-bg); color: var(--water); }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 18px; }
+@media (max-width: 680px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.label { font-size: 12px; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+.bars { display: grid; gap: 5px; }
+.bar { display: grid; grid-template-columns: 44px 1fr 20px; gap: 8px; align-items: center; font-size: 13px; }
+.bar .track { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.bar .fill { height: 100%; border-radius: 999px; }
+.bar .n { text-align: right; font-variant-numeric: tabular-nums; }
+.fill.목 { background: var(--wood); } .fill.화 { background: var(--fire); } .fill.토 { background: var(--earth); } .fill.금 { background: var(--metal); } .fill.수 { background: var(--water); }
+.luck { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.lk { flex: 0 0 auto; width: 58px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 2px 6px; display: grid; gap: 2px; justify-items: center; font-size: 11px; color: var(--muted); }
+.lk.now { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.lk .age { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.lk .c { font-family: var(--font-display); font-weight: 900; font-size: 19px; line-height: 1.1; width: 34px; text-align: center; border-radius: 6px; }
+
+/* chat */
+.chat { display: grid; gap: 12px; }
+.who-pick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tog { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 12px; font-size: 13px; }
+.tog[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.thread { display: grid; gap: 10px; }
+.msg { max-width: 92%; padding: 10px 14px; border-radius: 12px; min-width: 0; overflow-wrap: anywhere; }
+.msg.user { justify-self: end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; white-space: pre-wrap; }
+.msg.assistant { justify-self: start; background: var(--surface-2); border-bottom-left-radius: 4px; }
+.msg.assistant h3, .msg.assistant h4 { font-family: var(--font-display); font-size: 16px; margin: 10px 0 4px; }
+.msg.assistant p + p, .msg.assistant ul, .msg.assistant ol { margin-top: 6px; }
+.msg.assistant ul, .msg.assistant ol { margin-bottom: 0; padding-left: 20px; }
+.msg.assistant :first-child { margin-top: 0; }
+.msg.err { background: var(--warn-bg); color: var(--warn); }
+.sugs { display: flex; flex-wrap: wrap; gap: 6px; }
+.sug { border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 999px; padding: 4px 12px; font-size: 13px; text-align: left; }
+.sug:hover { background: var(--accent-soft); }
+.ask { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+.ask textarea { width: 100%; min-height: 48px; max-height: 200px; resize: vertical; border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; background: var(--surface); }
+.primary { border: 0; background: var(--accent); color: var(--accent-ink); border-radius: var(--r); padding: 10px 18px; font-weight: 700; }
+.primary:disabled { opacity: 0.5; cursor: default; }
+.ghost { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 8px 14px; }
+.ghost:hover { border-color: var(--accent); }
+.chat-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); }
+.typing { color: var(--muted); font-size: 13px; }
+
+/* form */
+.form { display: grid; gap: 14px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 16px; }
+.field { display: grid; gap: 4px; }
+.field > span { font-size: 13px; font-weight: 500; }
+.field input[type="text"], .field input[type="number"], .field input[type="time"], .field select, .field textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface); }
+.date3 { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 6px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg label { padding: 6px 14px; cursor: pointer; font-size: 14px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(input:checked) { background: var(--accent); color: var(--accent-ink); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+details.adv summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+details.adv[open] summary { margin-bottom: 8px; }
+.form-err { color: var(--seal); font-size: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--warn-bg); color: var(--warn); padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+
+/* chat-mode dialog */
+.back { position: fixed; inset: 0; background: rgb(0 0 0 / 0.45); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); z-index: 20; }
+.dlg { background: var(--surface); border-radius: 14px; padding: 18px; width: min(640px, 100%); max-height: 100%; overflow: auto; display: grid; gap: 10px; }
+.dlg textarea { width: 100%; min-height: 120px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--surface-2); font-size: 13px; }
+@media (prefers-reduced-motion: no-preference) { .msg { animation: in 0.18s ease-out; } @keyframes in { from { transform: translateY(4px); } } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="seal" aria-hidden="true">命</span>
+      <div>
+        <h1>사주 노트</h1>
+        <p class="muted small">가족·동료의 사주를 만세력으로 풀고, 그 사주를 바탕으로 무엇이든 물어보세요.</p>
+      </div>
+    </div>
+    <p class="status" id="status" role="status">연결하는 중…</p>
+  </header>
+
+  <div class="layout">
+    <aside class="people" aria-label="사람 목록">
+      <div class="people-list" id="peopleList"></div>
+      <button class="add" id="addBtn" type="button">+ 사람 추가</button>
+      <p class="note" id="privacyNote">넣은 생년월일과 대화는 나만 볼 수 있게 저장돼요.</p>
+    </aside>
+
+    <main class="main" id="main"></main>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- 만세력: 절기·합삭을 직접 계산 (Meeus), 시간대는 Intl(IANA)로 서머타임·표준시 변경까지 반영 ----------
+  const SAJU = (() => {
+    const STEM = "甲乙丙丁戊己庚辛壬癸", STEM_KO = "갑을병정무기경신임계";
+    const BR = "子丑寅卯辰巳午未申酉戌亥", BR_KO = "자축인묘진사오미신유술해";
+    const EL = ["목", "화", "토", "금", "수"], EL_HJ = "木火土金水";
+    const STEM_EL = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4];
+    const BR_EL = [4, 2, 0, 0, 2, 1, 1, 2, 3, 3, 2, 4];
+    const BR_ANIMAL = ["쥐", "소", "호랑이", "토끼", "용", "뱀", "말", "양", "원숭이", "닭", "개", "돼지"];
+    // 지장간 (여기·중기·정기 순, 마지막이 정기)
+    const HIDDEN = [[8, 9], [9, 7, 5], [4, 2, 0], [0, 1], [1, 9, 4], [4, 6, 2], [2, 5, 3], [3, 1, 5], [4, 8, 6], [6, 7], [7, 3, 4], [4, 0, 8]];
+    const GODS = [["비견", "겁재"], ["식신", "상관"], ["편재", "정재"], ["편관", "정관"], ["편인", "정인"]];
+    const STAGES = ["장생", "목욕", "관대", "건록", "제왕", "쇠", "병", "사", "묘", "절", "태", "양"];
+    const SAENG = [11, 6, 2, 9, 2, 9, 5, 0, 8, 3]; // 천간별 장생 지지
+    const rad = Math.PI / 180;
+    const mod = (a, n) => ((a % n) + n) % n;
+
+    // ---- 천문 ----
+    const jdFromMs = (ms) => ms / 864e5 + 2440587.5;
+    const msFromJd = (jd) => (jd - 2440587.5) * 864e5;
+    function deltaT(y) { // 초
+      const t = y - 2000;
+      if (y >= 2005) return 62.92 + 0.32217 * t + 0.005589 * t * t;
+      if (y >= 1986) return 63.86 + 0.3345 * t - 0.060374 * t * t + 0.0017275 * t ** 3 + 0.000651814 * t ** 4 + 0.00002373599 * t ** 5;
+      if (y >= 1961) { const u = y - 1975; return 45.45 + 1.067 * u - u * u / 260 - u ** 3 / 718; }
+      if (y >= 1941) { const u = y - 1950; return 29.07 + 0.407 * u - u * u / 233 + u ** 3 / 2547; }
+      if (y >= 1920) { const u = y - 1920; return 21.2 + 0.84493 * u - 0.0761 * u * u + 0.0020936 * u ** 3; }
+      return 0;
+    }
+    // 태양 겉보기 황경 (도), jde = 역학시 율리우스일
+    function sunLon(jde) {
+      const T = (jde - 2451545) / 36525;
+      const L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T * T;
+      const M = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) * rad;
+      const C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * Math.sin(M) + (0.019993 - 0.000101 * T) * Math.sin(2 * M) + 0.000289 * Math.sin(3 * M);
+      const om = (125.04 - 1934.136 * T) * rad;
+      return mod(L0 + C - 0.00569 - 0.00478 * Math.sin(om), 360);
+    }
+    const sunLonAtMs = (ms) => sunLon(jdFromMs(ms) + deltaT(new Date(ms).getUTCFullYear()) / 86400);
+    // 태양 황경이 target이 되는 순간(UTC ms), guessMs 근처
+    function termMs(target, guessMs) {
+      let ms = guessMs;
+      for (let i = 0; i < 8; i++) {
+        const d = mod(target - sunLonAtMs(ms) + 180, 360) - 180;
+        ms += d / 360 * 365.2422 * 864e5;
+        if (Math.abs(d) < 1e-6) break;
+      }
+      return ms;
+    }
+    // 절입 시각 보정표: 1900–2100년 12절(소한·입춘·…·대설)마다 위 근사식과 정밀 역표의 차이(분)
+    const JIE_FIX = Uint8Array.from(atob("/vz8/f3+/wIFBgQB/fr7/wMGCAkJCQkHBAIBAQH//fv7/QEEBAMB//38/f4AAwUGBgQCAf8AAgQFBgUEBAQFBQQCAP/////+/wEEBwgHBQMDBAUGBgUFBAQCAP7/AgQFBQMBAP//AAEBAQAA////AQQGCAkHBQMCAwUGBgUC//z7+/v8/f8BAP/9/P0AAgH//Pv8/f8BAgQGBwYD//39/wEB//39/f7+/fz9/gACAgEBAgQHBwUC//38/P3/AQQGBgYDAP37/P4AAQAAAAEDBAUFBQYHBwYGBQcKCwoF//v6/P8BAwQFBQUC//39AAICAgAAAgQHCAgHBQQEAwMDBQcIBgMA/Pr5+/4BAwUGBwcGBAIBAAAAAAAAAQQGBwYDAP38/P39/gEEBQQA/Pn5+/8CBAYICgoJBgQCAQD+/Pr7/gIFBgYD//z5+Pn8/wIDAwMB//7+/wIFBgYFBQYICAgFAP37/Pz8/gEFBwgGAv/+/wIDAwMDBAQEAgEBAgQGBQQDAwQEAwIA//38/P3+AQQICgoJBgMCAgQGBwcGBAIBAAD/AAECAwH//gACAwL/+/n5+/4BBAcKDAoHAwD/AQQFAwEAAQEBAP/+/v8AAP8AAQQGBgMA/fv7/QADBggKCgkHA//9/f4AAQD//wABAgICAQIEBgYFBQcJCgkFAPz8/gIFBgcHBwUB/fr6/P4A//7+/wEDBQUFBQQEBAQFBwkJBwP//Pr6/P8DBQUEAwIA//79/fz9/v8AAQQGCAcFAgD/AAECAgMEAwL/+/n5/P8DBQUGCAgHBQQCAgEBAQAAAgUICgkHAwD9/P3/AAEBAQEA////AQQICQkHBgYICgoIBQIAAAAAAQMGCQkGAv/+/wEDAwEAAAEBAQIDBQcIBwYEAwQFBQQC//79/f7/AQMFBgYFAwEAAAEDBAMCAQEBAgICAgMEBAIA/v4AAQH++vj4+fv+AAMHCQkHA///AQMFBAEAAQIDAwMCAgEA//38/QADBAL//Pr6/AADBgcJCQkIBwQDAgICAgEA/wEEBgcFBAMDBAQDAwQGCAgGAwAAAgUHCQkJCQgGAwD//wD///7+/wEDBgcHBgQDAgIEBgkKCggFAgD/AAIFBwcFAwIBAP/+/Pr6+vv8/gIHCgsIBAH/AAECAwQFBgUD//38/f8AAQECAwUFBQMB//79/P3/AgYKDAwKBgL+/Pz+/wABAQICAf/+/gADBQUEBAUHCgsJBQIAAAEDBAYKDAwJBP/8/P4AAQD/AAABAQIDBAUGBgYFBQcJCwkGAwD+/wADBQcJCQgGAwD+/gACAwMDAwQFBgUFBAQFBgUEAwQFBgUB/fr5+/4AAgUICgoHAv79/wIEBQUEBQYHBwYFBAQDAQD/AAIEBQMA/Pn4+v4DBwgICAcGBAMCAgMEBQUDAwQGCQkGAwEBAQICAwMEBQQB/v39AQQICQoJCQgHBAEAAAABAQEBAQIDBAQDAgEA/wACBAcIBwYEAf//AQMHCQoIBgMBAP/9/Pr6+/v8/QEFCAgFAf79/gEEBgcICAgFAwAAAQQFBQUEBAQFBAQB//38/P4AAwcKDAwLCAQBAQIEBQUFBAQFBQMBAQIEBQUEAgMFBwkIBQMCAwUGBwgKDQ0LBwL//wECAgD//////wABAwQFBAMCAgQGCAkHBAIBAQIEBggJCAcFAv/9/v8BAQD+/f4BBAUEAwMDBAMCAgMGBwcEAf79/gABAQIEBgYFAv/+/wECAgEBAgQHCAkJCAcFBAIAAAIEBQUEAf77/P4BBAUFBQUFBQUFBgYHBwYEBAUIDA4NCgcEAwMDAwQFBgUDAP//AgUHCAcHBwgICAcHBgUEBAMDBAYICAkIBQMA/wABAwUGBgUFAwIBAQMGCAkIBwYGBgUDAP79/f38/QAEBwgFAf36+vwAAwUGCAgHBQMCAgQGBgUEBAUGBwYEAPz5+Pn8AAQHCQoIBQL//wEEBgYGBgcICAcFAgIDBAQDAgMFCAgGAv79/wEEBQcKDQ4MCAQBAAIEBQQDAwQDAgIBAQEBAQEBAgQHCQoIBQIAAAIFCQwNDg0KBgMA/wACAwIA/wACBAUEAgAAAQECAwYKDAwIBAD+/wIFBgcICQkHBAH//wAAAP8AAgUHCQkIBgQDAgIDBAYICAgGA//9/P0BBAUFBAQFBAMDAgIDBAUEBAUIDA0NCgcEAwQFBgcHBwYD//z8/gEEBgYFBAQEBQUFBQQDAwQFBggKCgoIBQIA/wEDBgYFAwIBAP/+/wEEBwgHBgYGBwYEAf//AAEBAQMFBwcFAf78/P4CBAUGBwcGBAICBAYJCgoIBwcJCgkIBAH+/P0AAgQGCAgHBQIAAAMHCQkHBgYHCQoJCQgJCgkIBQUHCQkGAv/9/wEDBAUGCAkIBgQDBAYHBwYFBAQEBAMDAwMDAgIBAAEDBAUEAgD+/gADBgkKCwsJBwQDAgMEBAMA/v4AAgMDAQD//v7+/wIGCQkHAwD/AAMFBwgICQoJBwUEAwIB//38/QADBgcHBgMBAAECBAUHCAgIBgQCAQEEBgYFBAQFBgYFAwIBAgIBAQIGCg0ODAoHBgYHCAgICQgHAwD/AAIEBQUFBAMEBQYGBgUDAgECBAcKDQ4NCgcEAgIFBwcGBAIBAQD//wABAwMCAgMFBwgGAv79/f4AAQMGCQoIBAD9/f7/AAAAAQIDAgEAAQIDBQUFBQYICgsJBgL+/Pz+AAMFBwgIBgH+/P4BBAQDAgMFCAkJCAgICAgHBgcJDA0KBP/8+/0AAgQGBwgHBQIBAQIDAwMDAwUHCAgHBgUDAgICAwUGBwYEAf37+vwAAwcJCgsLCQYDAgICAwMCAgIEBwcGAwD+/f39/wEFCAgGAf37/P8EBwkLDA0MCggGBAMB//79/gADBgcGBAD9+/z/AgQFBgYFBAIAAAIEBwgIBgYGBwYEAf79/f7//wADBgkJBwQCAgMFBwcHBwYEAgD/AAIEBQYFBAIBAQEBAP/+/f7/AgQHCQsLCAUDAgMGCAkHBAIA//79/f8BAwMB//8BBAUC//z7/P8BBAYICwsKBgIAAAEEBAIBAAEBAQEBAQIDBAUFBQUHCQkIBQL//wACBQcICQkJBwQA/v8CBAQCAQABBAYHBwcICQkIBwcJCwsKBQD9/gADBQYHBwYDAf79/gAAAP///wACBAYHBgUEAwMEBQYHBgUC//v5"), (c) => c.charCodeAt(0));
+    function jieMs(target, guessMs) { // target = 315 + 30k (절)
+      const ms = termMs(target, guessMs), y = new Date(ms).getUTCFullYear(), i = mod(target - 285, 360) / 30;
+      if (y < 1900 || y > 2100) return ms;
+      const v = JIE_FIX[(y - 1900) * 12 + i];
+      return ms + (v > 127 ? v - 256 : v) * 60000;
+    }
+    // k번째 합삭 (Meeus 49장), UTC ms
+    function newMoonMs(k) {
+      const T = k / 1236.85;
+      let jde = 2451550.09766 + 29.530588861 * k + 0.00015437 * T * T - 0.00000015 * T ** 3 + 0.00000000073 * T ** 4;
+      const E = 1 - 0.002516 * T - 0.0000074 * T * T;
+      const M = (2.5534 + 29.1053567 * k - 0.0000014 * T * T - 0.00000011 * T ** 3) * rad;
+      const Mp = (201.5643 + 385.81693528 * k + 0.0107582 * T * T + 0.00001238 * T ** 3 - 0.000000058 * T ** 4) * rad;
+      const F = (160.7108 + 390.67050284 * k - 0.0016118 * T * T - 0.00000227 * T ** 3 + 0.000000011 * T ** 4) * rad;
+      const Om = (124.7746 - 1.56375588 * k + 0.0020672 * T * T + 0.00000215 * T ** 3) * rad;
+      const s = Math.sin;
+      jde += -0.4072 * s(Mp) + 0.17241 * E * s(M) + 0.01608 * s(2 * Mp) + 0.01039 * s(2 * F) + 0.00739 * E * s(Mp - M)
+        - 0.00514 * E * s(Mp + M) + 0.00208 * E * E * s(2 * M) - 0.00111 * s(Mp - 2 * F) - 0.00057 * s(Mp + 2 * F)
+        + 0.00056 * E * s(2 * Mp + M) - 0.00042 * s(3 * Mp) + 0.00042 * E * s(M + 2 * F) + 0.00038 * E * s(M - 2 * F)
+        - 0.00024 * E * s(2 * Mp - M) - 0.00017 * s(Om) - 0.00007 * s(Mp + 2 * M) + 0.00004 * s(2 * Mp - 2 * F)
+        + 0.00004 * s(3 * M) + 0.00003 * s(Mp + M - 2 * F) + 0.00003 * s(2 * Mp + 2 * F) - 0.00003 * s(Mp + M + 2 * F)
+        + 0.00003 * s(Mp - M + 2 * F) - 0.00002 * s(Mp - M - 2 * F) - 0.00002 * s(3 * Mp + M) + 0.00002 * s(4 * Mp);
+      const ms = msFromJd(jde);
+      return ms - deltaT(new Date(ms).getUTCFullYear()) * 1000;
+    }
+
+    // ---- 시간대 ----
+    const fmtCache = {};
+    function tzOffsetMin(tz, ms) { // 그 순간 tz의 UTC 오프셋(분)
+      if (typeof tz === "number") return tz;
+      if (typeof tz === "function") return tz(ms);
+      const f = fmtCache[tz] ||= new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
+      const p = {}; for (const x of f.formatToParts(new Date(ms))) p[x.type] = +x.value;
+      return Math.round((Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) - Math.floor(ms / 1000) * 1000) / 60000);
+    }
+    function wallToUtc(tz, y, mo, d, h, mi) { // 그 지역 시계 시각 → UTC ms
+      const w = Date.UTC(y, mo - 1, d, h, mi);
+      let ms = w - tzOffsetMin(tz, w) * 60000;
+      ms = w - tzOffsetMin(tz, ms) * 60000;
+      return ms;
+    }
+    // 음력 날짜는 한국 표준시 기준 (서머타임 없이; 1954-03-21 ~ 1961-08-09는 동경 127.5°)
+    const KTZ = (ms) => (ms >= Date.UTC(1954, 2, 20, 15) && ms < Date.UTC(1961, 7, 9, 15) ? 510 : 540);
+    const dayNo = (ms, tz) => Math.floor((ms + tzOffsetMin(tz, ms) * 60000) / 864e5); // 그 지역 날짜의 일련번호
+    const fromDayNo = (n) => { const d = new Date(n * 864e5); return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() }; };
+    const toDayNo = (y, m, d) => Math.floor(Date.UTC(y, m - 1, d) / 864e5);
+
+    // ---- 음력 (한국천문연구원 방식: 합삭일이 초하루, 동지 든 달이 11월, 중기 없는 달이 윤달) ----
+    const cycles = {};
+    function lunarCycle(y) { // y년 동지 든 달(11월) ~ y+1년 동지 든 달 직전
+      if (cycles[y]) return cycles[y];
+      const sol = (yy) => dayNo(termMs(270, Date.UTC(yy, 11, 21)), KTZ);
+      const s1 = sol(y), s2 = sol(y + 1);
+      const k0 = Math.round((y + 9.5 / 12 - 2000) * 12.3685);
+      const starts = Array.from({ length: 17 }, (_, i) => dayNo(newMoonMs(k0 + i), KTZ));
+      const i0 = starts.findLastIndex((n) => n <= s1), i2 = starts.findLastIndex((n) => n <= s2);
+      const midnight = (n) => n * 864e5 - tzOffsetMin(KTZ, n * 864e5) * 60000;
+      const noMidTerm = (i) => { // 중기(황경 30° 배수)가 없는 달
+        const a = sunLonAtMs(midnight(starts[i])); let b = sunLonAtMs(midnight(starts[i + 1]));
+        if (b < a) b += 360;
+        return Math.floor(a / 30) === Math.floor(b / 30);
+      };
+      const months = [];
+      let leapLeft = i2 - i0 === 13, num = 11;
+      for (let i = i0; i < i2; i++) {
+        const leap = i > i0 && leapLeft && noMidTerm(i);
+        if (leap) leapLeft = false; else if (i > i0) num = num % 12 + 1;
+        months.push({ start: starts[i], days: starts[i + 1] - starts[i], month: num, leap, year: num >= 11 && i - i0 < 3 ? y : y + 1 });
+      }
+      return (cycles[y] = months);
+    }
+    function lunarMonths(Y) { return [...lunarCycle(Y - 1), ...lunarCycle(Y)].filter((m) => m.year === Y); }
+    function lunarToSolar(Y, M, D, leap) {
+      const m = lunarMonths(Y).find((x) => x.month === M && !!x.leap === !!leap);
+      if (!m) return { error: leap ? `${Y}년에는 윤${M}월이 없어요.` : "그런 음력 달이 없어요." };
+      if (D > m.days) return { error: `${Y}년 음력 ${leap ? "윤" : ""}${M}월은 ${m.days}일까지예요.` };
+      return fromDayNo(m.start + D - 1);
+    }
+    function solarToLunar(y, mo, d) {
+      const n = toDayNo(y, mo, d);
+      for (const cy of [y - 1, y]) for (const m of lunarCycle(cy)) if (n >= m.start && n < m.start + m.days) return { y: m.year, m: m.month, d: n - m.start + 1, leap: m.leap };
+      return null;
+    }
+
+    // ---- 간지 ----
+    const gz = (s, b) => ({ s, b, hj: STEM[s] + BR[b], ko: STEM_KO[s] + BR_KO[b] });
+    const gz60 = (i) => gz(mod(i, 10), mod(i, 12));
+    const idx60 = (s, b) => { for (let i = 0; i < 60; i++) if (i % 10 === s && i % 12 === b) return i; return 0; };
+    function yearGz(y) { return gz60(y - 4); }
+    function tenGod(day, s) {
+      const d = mod(STEM_EL[s] - STEM_EL[day], 5);
+      return GODS[d][(day % 2) === (s % 2) ? 0 : 1];
+    }
+    const stage = (stem, b) => STAGES[stem % 2 === 0 ? mod(b - SAENG[stem], 12) : mod(SAENG[stem] - b, 12)];
+
+    // 입력: {y,m,d, cal:'solar'|'lunar', leap, time:'HH:MM'|'' , tz, lon, gender:'f'|'m', correct:true, jasi:'next'|'split'}
+    function compute(p) {
+      let { y, m, d } = p;
+      if (p.cal === "lunar") { const s = lunarToSolar(y, m, d, p.leap); if (s.error) return { error: s.error }; ({ y, m, d } = s); }
+      const known = !!p.time;
+      const [hh, mi] = known ? p.time.split(":").map(Number) : [12, 0];
+      const tz = p.tz || "Asia/Seoul";
+      const utc = wallToUtc(tz, y, m, d, hh, mi);
+      const offset = tzOffsetMin(tz, utc);
+      const correct = p.correct !== false && p.lon != null;
+      // 진태양시 대신 평균태양시(경도 보정): UTC + 경도×4분
+      const localMs = correct ? utc + p.lon * 4 * 60000 : Date.UTC(y, m - 1, d, hh, mi);
+      const lt = new Date(localMs);
+      const lMin = lt.getUTCHours() * 60 + lt.getUTCMinutes();
+      let dayN = Math.floor(localMs / 864e5);
+      // 월주: 절입 시각 기준 (0 = 인월, 입춘부터)
+      let mIdx = Math.floor(mod(sunLonAtMs(utc) - 315, 360) / 30);
+      let p0 = jieMs(315 + mIdx * 30, utc - 15 * 864e5);
+      if (utc < p0) { mIdx = mod(mIdx - 1, 12); p0 = jieMs(315 + mIdx * 30, utc - 15 * 864e5); }
+      let nextTerm = jieMs(315 + (mIdx + 1) * 30, utc + 15 * 864e5);
+      if (utc >= nextTerm) { mIdx = (mIdx + 1) % 12; p0 = nextTerm; nextTerm = jieMs(315 + (mIdx + 1) * 30, utc + 15 * 864e5); }
+      // 년주: 입춘 기준 (1–2월의 자월·축월은 전년)
+      const sy = m <= 2 && mIdx >= 10 ? y - 1 : y;
+      const year = yearGz(sy);
+      const month = gz(mod((year.s % 5) * 2 + 2 + mIdx, 10), (2 + mIdx) % 12);
+      // 일주: 2000-01-01 = 戊午 (60갑자 54)
+      const late = known && lMin >= 23 * 60;
+      if (late && p.jasi !== "split") dayN++;
+      const dayIdx = mod(dayN - toDayNo(2000, 1, 1) + 54, 60);
+      const day = gz60(dayIdx);
+      let hour = null;
+      if (known) {
+        const hb = Math.floor(mod(lMin + 60, 1440) / 120);
+        const baseDay = late && p.jasi === "split" ? mod(day.s + 1, 10) : day.s; // 야자시는 다음 날 천간으로 시간 천간
+        hour = gz(mod((baseDay % 5) * 2 + hb, 10), hb);
+      }
+      // 절입 시각과 가까우면 경고
+      const nearTerm = Math.min(Math.abs(utc - p0), Math.abs(nextTerm - utc)) < 30 * 60000;
+      const nearHour = known && correct && (() => { const r = mod(lMin + 60, 120); return r < 6 || r > 114; })();
+
+      const pillars = [hour, day, month, year];
+      const dm = day.s;
+      const cells = pillars.map((g, i) => g && {
+        ...g, label: ["시주", "일주", "월주", "년주"][i],
+        stemEl: EL[STEM_EL[g.s]], brEl: EL[BR_EL[g.b]],
+        stemGod: i === 1 ? "일간(나)" : tenGod(dm, g.s),
+        brGod: tenGod(dm, HIDDEN[g.b][HIDDEN[g.b].length - 1]),
+        hidden: HIDDEN[g.b].map((h) => STEM_KO[h] + STEM[h]).join(" "),
+        stage: stage(dm, g.b),
+      });
+      const els = [0, 0, 0, 0, 0];
+      pillars.forEach((g) => { if (g) { els[STEM_EL[g.s]]++; els[BR_EL[g.b]]++; } });
+      // 대운: 양남음녀 순행, 음남양녀 역행. 절입까지 날수 ÷ 3 = 대운수
+      const fwd = (year.s % 2 === 0) === (p.gender === "m");
+      const diffDays = (fwd ? nextTerm - utc : utc - p0) / 864e5;
+      const startAge = diffDays / 3;
+      const startN = Math.max(1, Math.round(startAge));
+      const mi60 = idx60(month.s, month.b);
+      const daeun = Array.from({ length: 10 }, (_, i) => {
+        const g = gz60(mi60 + (fwd ? i + 1 : -(i + 1)));
+        return { ...g, age: startN + i * 10, year: y + startN + i * 10, stemGod: tenGod(dm, g.s), brGod: tenGod(dm, HIDDEN[g.b][HIDDEN[g.b].length - 1]), stage: stage(dm, g.b) };
+      });
+      return {
+        solar: { y, m, d }, lunar: solarToLunar(y, m, d), time: known ? p.time : null,
+        local: known ? `${String(lt.getUTCHours()).padStart(2, "0")}:${String(lt.getUTCMinutes()).padStart(2, "0")}` : null,
+        offset, correct, pillars: cells, dayMaster: { s: dm, ko: STEM_KO[dm], hj: STEM[dm], el: EL[STEM_EL[dm]], yang: dm % 2 === 0 },
+        elements: EL.map((e, i) => ({ el: e, hj: EL_HJ[i], n: els[i] })), animal: BR_ANIMAL[year.b], sajuYear: sy,
+        daeun, daeunStart: startAge, forward: fwd, nearTerm, nearHour,
+        termAt: { prev: p0, next: nextTerm },
+      };
+    }
+    function yearInfo(Y, dm) { const g = yearGz(Y); return { ...g, y: Y, stemGod: tenGod(dm, g.s), brGod: tenGod(dm, HIDDEN[g.b][HIDDEN[g.b].length - 1]), stage: stage(dm, g.b) }; }
+    return { compute, yearInfo, lunarToSolar, solarToLunar, lunarMonths, termMs, jieMs, newMoonMs, sunLonAtMs, wallToUtc, STEM, STEM_KO, BR, BR_KO, EL };
+  })();
+
+  // ---------- helpers ----------
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const pad = (n) => String(n).padStart(2, "0");
+  const uid8 = () => Math.random().toString(36).slice(2, 10);
+  const RELS = ["나", "배우자", "아이", "부모", "형제자매", "친구", "동료", "상사", "연인", "기타"];
+  const PLACES = [
+    ["서울", 126.98], ["인천", 126.71], ["수원", 127.01], ["춘천", 127.73], ["강릉", 128.88], ["대전", 127.38], ["청주", 127.49],
+    ["전주", 127.15], ["광주", 126.85], ["대구", 128.6], ["포항", 129.37], ["울산", 129.31], ["부산", 129.08], ["창원", 128.68], ["제주", 126.53],
+    ["도쿄", 139.69, "Asia/Tokyo"], ["오사카", 135.5, "Asia/Tokyo"], ["베이징", 116.4, "Asia/Shanghai"], ["상하이", 121.47, "Asia/Shanghai"],
+    ["홍콩", 114.17, "Asia/Hong_Kong"], ["타이베이", 121.56, "Asia/Taipei"], ["싱가포르", 103.82, "Asia/Singapore"], ["방콕", 100.5, "Asia/Bangkok"],
+    ["호찌민·하노이", 106.0, "Asia/Ho_Chi_Minh"], ["시드니", 151.21, "Australia/Sydney"], ["뉴욕", -74.01, "America/New_York"],
+    ["시카고", -87.63, "America/Chicago"], ["LA", -118.24, "America/Los_Angeles"], ["토론토", -79.38, "America/Toronto"],
+    ["밴쿠버", -123.12, "America/Vancouver"], ["런던", -0.13, "Europe/London"], ["파리", 2.35, "Europe/Paris"], ["베를린", 13.4, "Europe/Berlin"],
+  ];
+  const placeOf = (name) => { const p = PLACES.find((x) => x[0] === name) || PLACES[0]; return { name: p[0], lon: p[1], tz: p[2] || "Asia/Seoul" }; };
+  const EXAMPLE = { id: "example", example: true, name: "예시 · 김하늘", rel: "나", gender: "f", cal: "solar", y: 1990, m: 5, d: 15, time: "07:30", place: "서울", memo: "" };
+
+  function chartOf(p) {
+    const pl = placeOf(p.place);
+    return SAJU.compute({ y: +p.y, m: +p.m, d: +p.d, cal: p.cal, leap: !!p.leap, time: p.time || "", tz: pl.tz, lon: pl.lon, gender: p.gender, correct: p.correct !== false, jasi: p.jasi || "next" });
+  }
+  const now = new Date();
+  const TODAY = { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+  const todayChart = SAJU.compute({ ...TODAY, cal: "solar", time: "12:00", tz: "Asia/Seoul", correct: false, gender: "m" });
+
+  // ---------- storage: 내 몫의 db 경로, 없으면 이 브라우저 ----------
+  const LS = {
+    get(k) { try { return JSON.parse(localStorage.getItem("saju:" + k)); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem("saju:" + k, JSON.stringify(v)); } catch {} },
+  };
+  let db = null, base = null, sample = null;
+  const store = {
+    watchPeople(cb) {
+      if (base) return db.doc(base).collection("people").onSnapshot((s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() }))), () => setStatus("목록을 불러오지 못했어요. 새로고침해 주세요.", true));
+      cb(LS.get("people") || []);
+    },
+    async savePerson(p) {
+      const { id, ...data } = p;
+      if (base) return db.doc(base).collection("people").doc(id).set(data);
+      const list = (LS.get("people") || []).filter((x) => x.id !== id); list.push(p); LS.set("people", list); people = list; renderAll();
+    },
+    async deletePerson(id) {
+      if (base) return db.doc(base).collection("people").doc(id).delete();
+      LS.set("people", (LS.get("people") || []).filter((x) => x.id !== id)); people = people.filter((x) => x.id !== id); renderAll();
+    },
+    async getChat(key) {
+      if (base) { try { const s = await db.doc(base).collection("chats").doc(key).get(); return s.exists ? s.data() : null; } catch { return null; } }
+      return LS.get("chat:" + key);
+    },
+    async setChat(key, data) {
+      if (base) return db.doc(base).collection("chats").doc(key).set(data);
+      LS.set("chat:" + key, data);
+    },
+  };
+
+  // ---------- state ----------
+  let people = [], selId = null, editing = null, confirmDel = false;
+  let chatWith = [], chatKey = null, messages = [], streaming = null, sugs = [];
+  const sorted = () => [...people].sort((a, b) => RELS.indexOf(a.rel) - RELS.indexOf(b.rel) || (a.createdAt || "").localeCompare(b.createdAt || ""));
+  const cur = () => people.find((p) => p.id === selId) || (people.length ? null : EXAMPLE);
+  function setStatus(t, err) { const s = $("status"); s.textContent = t || ""; s.classList.toggle("err", !!err); }
+
+  // ---------- people list ----------
+  function renderPeople() {
+    const box = $("peopleList"); box.replaceChildren();
+    const list = people.length ? sorted() : [EXAMPLE];
+    for (const p of list) {
+      const r = chartOf(p);
+      const b = el("button", "person"); b.type = "button";
+      b.setAttribute("aria-current", String((selId || "example") === p.id && !editing));
+      const dm = el("span", "dm" + (r.error ? "" : " el-" + r.dayMaster.el), r.error ? "?" : r.dayMaster.hj);
+      dm.setAttribute("aria-hidden", "true");
+      b.append(dm, el("span", "nm", p.name), el("span", "sub", r.error ? p.rel : `${p.rel} · ${r.dayMaster.ko}${r.dayMaster.el} 일간 · ${r.animal}띠`));
+      b.onclick = () => { if (p.example) return; selectPerson(p.id); };
+      box.append(b);
+    }
+  }
+  function selectPerson(id) {
+    selId = id; editing = null; confirmDel = false;
+    try { localStorage.setItem("saju:sel", id); } catch {}
+    setChatWith([id]);
+    renderAll();
+  }
+
+  // ---------- chart ----------
+  const godCls = (g) => "god" + (g === "일간(나)" ? " me" : "");
+  function ledger(r) {
+    const L = el("div", "ledger");
+    const cols = r.pillars; // 시 일 월 년
+    L.append(el("div", "rh ch", ""));
+    cols.forEach((c, i) => L.append(el("div", "ch" + (i === 1 ? " me" : ""), ["시주", "일주", "월주", "년주"][i])));
+    const row = (name, f) => { L.append(el("div", "rh", name)); cols.forEach((c, i) => { const d = el("div"); f(d, c, i); L.append(d); }); };
+    const glyph = (d, c, part) => {
+      d.className = "glyph";
+      if (!c) { d.append(el("span", "none", "시간 모름")); return; }
+      const e = part === "s" ? c.stemEl : c.brEl;
+      const g = el("div", "g el-" + e);
+      g.append(el("span", "hj", part === "s" ? c.hj[0] : c.hj[1]), el("span", "ko", (part === "s" ? c.ko[0] : c.ko[1]) + " · " + e));
+      g.title = `${part === "s" ? c.ko[0] : c.ko[1]} (${e})`;
+      d.append(g);
+    };
+    row("십성", (d, c) => { d.className = c ? godCls(c.stemGod) : "god"; d.textContent = c ? c.stemGod : "–"; });
+    row("천간", (d, c) => glyph(d, c, "s"));
+    row("지지", (d, c) => glyph(d, c, "b"));
+    row("십성", (d, c) => { d.className = "god"; d.textContent = c ? c.brGod : "–"; });
+    row("지장간", (d, c) => { d.className = "small muted"; d.textContent = c ? c.hidden : "–"; });
+    row("12운성", (d, c) => { d.textContent = c ? c.stage : "–"; });
+    const s = el("div", "ledger-scroll"); s.append(L); return s;
+  }
+  function currentDaeun(r) {
+    let idx = -1; r.daeun.forEach((x, i) => { if (x.year <= TODAY.y) idx = i; }); return idx;
+  }
+  function luckCell(top, g, sub, now) {
+    const c = el("div", "lk" + (now ? " now" : ""));
+    c.append(el("span", "age", top), el("span", "", g.stemGod), el("span", "c el-" + SAJU.EL[[0, 0, 1, 1, 2, 2, 3, 3, 4, 4][g.s]], g.hj[0]),
+      el("span", "c el-" + SAJU.EL[[4, 2, 0, 0, 2, 1, 1, 2, 3, 3, 2, 4][g.b]], g.hj[1]), el("span", "", g.brGod), el("span", "", sub));
+    return c;
+  }
+  function factsOf(p, r) {
+    const pl = placeOf(p.place);
+    const sol = `양력 ${r.solar.y}.${pad(r.solar.m)}.${pad(r.solar.d)}`;
+    const lun = r.lunar ? `음력 ${r.lunar.y}.${r.lunar.leap ? "윤" : ""}${pad(r.lunar.m)}.${pad(r.lunar.d)}` : "";
+    let t = "태어난 시각 모름";
+    if (r.time) {
+      if (r.correct) {
+        const diff = Math.round(pl.lon * 4 - r.offset);
+        const dst = pl.tz === "Asia/Seoul" && (r.offset === 600 || r.offset === 570);
+        t = `${r.time} → 태양시 ${r.local} (${pl.name} 경도 보정 ${diff > 0 ? "+" : ""}${diff}분${dst ? ", 서머타임 기간" : ""})`;
+      } else t = `${r.time} (보정 안 함)`;
+    }
+    return { sol, lun, t, place: pl.name };
+  }
+  function renderChart(p) {
+    const r = chartOf(p);
+    const panel = el("section", "panel"); panel.setAttribute("aria-label", "사주 원국");
+    if (p.example) panel.append(el("p", "example", "예시 사주예요. ‘내 사주 넣기’나 ‘+ 사람 추가’로 사람을 넣으면 이 자리에 그 사람의 사주가 보여요."));
+    const head = el("div", "head");
+    const who = el("div", "who"); who.append(el("h2", "", p.name), el("span", "rel", `${p.rel} · ${p.gender === "m" ? "남" : "여"}`));
+    head.append(who);
+    if (!p.example) {
+      const acts = el("div", "row");
+      const ed = el("button", "linkbtn", "고치기"); ed.type = "button"; ed.onclick = () => { editing = { ...p }; renderAll(); };
+      const del = el("button", "linkbtn danger", "삭제"); del.type = "button"; del.onclick = () => { confirmDel = true; renderAll(); };
+      acts.append(ed, del); head.append(acts);
+    } else {
+      const add = el("button", "primary", "내 사주 넣기"); add.type = "button"; add.onclick = () => openForm(); head.append(add);
+    }
+    panel.append(head);
+    if (confirmDel) {
+      const c = el("div", "confirm"); c.append(el("span", "", `${p.name}님과 대화 기록을 지울까요?`));
+      const yes = el("button", "primary", "지우기"); yes.type = "button";
+      yes.onclick = async () => { try { await store.deletePerson(p.id); selId = null; confirmDel = false; setStatus("지웠어요."); renderAll(); } catch { setStatus("지우지 못했어요. 다시 시도해 주세요.", true); } };
+      const no = el("button", "linkbtn", "취소"); no.type = "button"; no.onclick = () => { confirmDel = false; renderAll(); };
+      c.append(yes, no); panel.append(c);
+    }
+    if (r.error) { panel.append(el("p", "form-err", r.error)); return panel; }
+    const f = factsOf(p, r);
+    const facts = el("div", "facts");
+    for (const [k, v] of [["생일", `${p.cal === "lunar" ? f.lun + " (" + f.sol + ")" : f.sol + (f.lun ? " (" + f.lun + ")" : "")}`], ["시각", f.t], ["출생지", f.place], ["띠", `${r.animal}띠 (${r.sajuYear}년 입춘 기준)`]]) {
+      const s = el("span"); s.append(k + " ", el("b", "", v)); facts.append(s);
+    }
+    panel.append(facts);
+    const w = el("div", "warns");
+    if (!r.time) w.append(el("p", "", "태어난 시각을 몰라 시주 없이 세 기둥(6글자)으로 봐요. 알게 되면 ‘고치기’에서 넣어 주세요."));
+    if (r.nearTerm) w.append(el("p", "", "절기가 바뀌는 시각과 30분 안쪽이라, 출생 시각이 조금만 달라도 월주(와 년주)가 바뀔 수 있어요."));
+    if (r.nearHour) w.append(el("p", "", "시(時)가 바뀌는 경계와 몇 분 차이라, 시주가 옆 시로 바뀔 수 있어요."));
+    if (w.childNodes.length) panel.append(w);
+    panel.append(ledger(r));
+
+    const cols = el("div", "cols");
+    const left = el("div");
+    left.append(el("div", "label", "오행 분포"));
+    const bars = el("div", "bars");
+    const total = r.elements.reduce((a, b) => a + b.n, 0);
+    for (const e of r.elements) {
+      const b = el("div", "bar"); const tr = el("div", "track"); const fl = el("div", "fill " + e.el);
+      fl.style.width = (e.n / total * 100) + "%"; tr.append(fl);
+      b.append(el("span", "", `${e.el} ${e.hj}`), tr, el("span", "n", String(e.n))); bars.append(b);
+    }
+    left.append(bars);
+    left.append(el("p", "small muted", `일간 ${r.dayMaster.ko}${r.dayMaster.hj} · ${r.dayMaster.yang ? "양" : "음"}${r.dayMaster.el}. 천간·지지 ${total}글자 기준.`));
+    const right = el("div");
+    const di = currentDaeun(r);
+    right.append(el("div", "label", `대운 · ${r.forward ? "순행" : "역행"} · 대운수 ${Math.max(1, Math.round(r.daeunStart))}`));
+    const luck = el("div", "luck");
+    r.daeun.forEach((g, i) => luck.append(luckCell(`${g.age}세`, g, `${g.year}`, i === di)));
+    right.append(luck);
+    right.append(el("div", "label", "세운"));
+    const sy = el("div", "luck");
+    for (let Y = TODAY.y - 1; Y <= TODAY.y + 4; Y++) { const g = SAJU.yearInfo(Y, r.dayMaster.s); sy.append(luckCell(`${Y}`, g, Y === TODAY.y ? "올해" : `${Y - r.solar.y}세`, Y === TODAY.y)); }
+    right.append(sy);
+    cols.append(left, right);
+    panel.append(cols);
+    requestAnimationFrame(() => panel.querySelectorAll(".luck .now").forEach((n) => n.parentElement.scrollLeft = Math.max(0, n.offsetLeft - n.parentElement.offsetLeft - 80)));
+    return panel;
+  }
+
+  // ---------- form ----------
+  function openForm(p) {
+    editing = p ? { ...p } : { id: null, name: "", rel: people.some((x) => x.rel === "나") ? "배우자" : "나", gender: "f", cal: "solar", y: "", m: "", d: "", leap: false, time: "", place: "서울", memo: "" };
+    confirmDel = false; renderAll(); $("f-name")?.focus();
+  }
+  function renderForm() {
+    const p = editing;
+    const panel = el("section", "panel"); panel.setAttribute("aria-label", "사람 정보");
+    const form = el("form", "form");
+    form.innerHTML = `
+      <div class="head"><h2>${p.id ? "정보 고치기" : "사람 추가"}</h2></div>
+      <div class="grid2">
+        <label class="field"><span>이름 (별명도 괜찮아요)</span><input type="text" id="f-name" maxlength="20" required></label>
+        <label class="field"><span>관계</span><select id="f-rel">${RELS.map((r) => `<option>${r}</option>`).join("")}</select></label>
+      </div>
+      <div class="row">
+        <div class="seg" role="radiogroup" aria-label="성별"><label><input type="radio" name="f-g" id="f-g-f" value="f">여</label><label><input type="radio" name="f-g" id="f-g-m" value="m">남</label></div>
+        <div class="seg" role="radiogroup" aria-label="달력"><label><input type="radio" name="f-cal" id="f-cal-s" value="solar">양력</label><label><input type="radio" name="f-cal" id="f-cal-l" value="lunar">음력</label></div>
+        <label class="check" id="f-leap-wrap"><input type="checkbox" id="f-leap"> 윤달</label>
+      </div>
+      <div class="grid2">
+        <div class="field"><span>생년월일</span><div class="date3">
+          <input type="number" id="f-y" placeholder="1990" min="1900" max="2100" aria-label="년" inputmode="numeric">
+          <input type="number" id="f-m" placeholder="월" min="1" max="12" aria-label="월" inputmode="numeric">
+          <input type="number" id="f-d" placeholder="일" min="1" max="31" aria-label="일" inputmode="numeric">
+        </div></div>
+        <div class="field"><span>태어난 시각</span><div class="row">
+          <input type="time" id="f-time" style="flex:1;min-width:0">
+          <label class="check"><input type="checkbox" id="f-notime"> 모름</label>
+        </div></div>
+        <label class="field"><span>태어난 곳</span><select id="f-place">${PLACES.map((x) => `<option>${x[0]}</option>`).join("")}</select></label>
+      </div>
+      <label class="field"><span>참고할 내용 (선택)</span><textarea id="f-memo" rows="2" maxlength="300" placeholder="예: 초등학교 2학년, 요즘 학교 적응이 고민 / 같은 팀 팀장, 성격이 급한 편"></textarea></label>
+      <details class="adv"><summary>계산 방식</summary>
+        <div class="grid2">
+          <label class="check"><input type="checkbox" id="f-correct"> 출생지 경도·서머타임으로 시각 보정 (권장)</label>
+          <label class="field"><span>밤 11시~자정 출생</span><select id="f-jasi"><option value="next">다음 날 자시로 봄 (기본)</option><option value="split">그날로 봄 (야자시)</option></select></label>
+        </div>
+        <p class="small muted">한국은 표준시가 동경 135°라 서울 기준 실제 태양시보다 약 32분 빨라요. 1948–1960년, 1987–1988년 서머타임과 1954–1961년 표준시 변경도 자동으로 반영해요.</p>
+      </details>
+      <p class="form-err" id="f-err" role="alert"></p>
+      <div class="row"><button class="primary" type="submit">저장</button><button class="ghost" type="button" id="f-cancel">취소</button></div>`;
+    panel.append(form);
+    const q = (id) => form.querySelector("#" + id);
+    q("f-name").value = p.name || ""; q("f-rel").value = p.rel || "나";
+    q(p.gender === "m" ? "f-g-m" : "f-g-f").checked = true;
+    q(p.cal === "lunar" ? "f-cal-l" : "f-cal-s").checked = true;
+    q("f-leap").checked = !!p.leap; q("f-y").value = p.y || ""; q("f-m").value = p.m || ""; q("f-d").value = p.d || "";
+    q("f-time").value = p.time || ""; q("f-notime").checked = p.id ? !p.time : false; q("f-place").value = p.place || "서울";
+    q("f-memo").value = p.memo || ""; q("f-correct").checked = p.correct !== false; q("f-jasi").value = p.jasi || "next";
+    const sync = () => { q("f-leap-wrap").hidden = !q("f-cal-l").checked; q("f-time").disabled = q("f-notime").checked; };
+    form.querySelectorAll("input[name='f-cal'], #f-notime").forEach((i) => (i.onchange = sync)); sync();
+    q("f-cancel").onclick = () => { editing = null; renderAll(); };
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const err = (t) => { q("f-err").textContent = t; };
+      const v = {
+        id: p.id || uid8(), name: q("f-name").value.trim(), rel: q("f-rel").value, gender: q("f-g-m").checked ? "m" : "f",
+        cal: q("f-cal-l").checked ? "lunar" : "solar", leap: q("f-cal-l").checked && q("f-leap").checked,
+        y: +q("f-y").value, m: +q("f-m").value, d: +q("f-d").value, time: q("f-notime").checked ? "" : q("f-time").value,
+        place: q("f-place").value, memo: q("f-memo").value.trim(), correct: q("f-correct").checked, jasi: q("f-jasi").value,
+        createdAt: p.createdAt || new Date().toISOString(),
+      };
+      if (!v.name) return err("이름을 넣어 주세요.");
+      if (!(v.y >= 1900 && v.y <= 2100) || !(v.m >= 1 && v.m <= 12) || !(v.d >= 1 && v.d <= 31)) return err("생년월일을 숫자로 넣어 주세요. 예: 1990 / 5 / 15");
+      if (v.cal === "solar") { const t = new Date(Date.UTC(v.y, v.m - 1, v.d)); if (t.getUTCMonth() !== v.m - 1) return err(`${v.y}년 ${v.m}월에는 ${v.d}일이 없어요.`); }
+      if (!q("f-notime").checked && !v.time) return err("태어난 시각을 넣거나 ‘모름’을 체크해 주세요.");
+      const r = chartOf(v); if (r.error) return err(r.error);
+      try {
+        await store.savePerson(v);
+        if (!people.some((x) => x.id === v.id)) people = [...people, v]; else people = people.map((x) => (x.id === v.id ? v : x));
+        editing = null; selectPerson(v.id); setStatus(`${v.name}님 사주를 저장했어요.`);
+      } catch { err("저장하지 못했어요. 다시 눌러 주세요."); }
+    };
+    return panel;
+  }
+
+  // ---------- 대화 ----------
+  const keyOf = (ids) => [...ids].sort().join("+");
+  async function setChatWith(ids) {
+    chatWith = ids.filter((id) => people.some((p) => p.id === id));
+    chatKey = keyOf(chatWith); messages = []; sugs = []; renderChatArea();
+    const k = chatKey; const doc = chatKey ? await store.getChat(chatKey) : null;
+    if (k !== chatKey) return;
+    messages = doc?.messages || []; sugs = doc?.sugs || []; renderChatArea();
+  }
+  function personText(p) {
+    const r = chartOf(p); if (r.error) return `■ ${p.name}: 사주를 계산하지 못함`;
+    const f = factsOf(p, r);
+    const P = r.pillars;
+    const pil = ["시주", "일주", "월주", "년주"].map((n, i) => P[i] ? `${n} ${P[i].hj}(${P[i].ko}) 천간 ${P[i].stemEl}·${P[i].stemGod} / 지지 ${P[i].brEl}·${P[i].brGod} / 지장간 ${P[i].hidden} / 12운성 ${P[i].stage}` : `${n} 모름(태어난 시각 모름)`).join("\n  ");
+    const di = currentDaeun(r);
+    const dae = r.daeun.map((g, i) => `${g.age}세(${g.year}~) ${g.hj} ${g.stemGod}/${g.brGod}${i === di ? " ←지금" : ""}`).join(", ");
+    const se = [TODAY.y, TODAY.y + 1, TODAY.y + 2].map((Y) => { const g = SAJU.yearInfo(Y, r.dayMaster.s); return `${Y} ${g.hj} ${g.stemGod}/${g.brGod} ${g.stage}`; }).join(", ");
+    const age = TODAY.y - r.solar.y - ((TODAY.m < r.solar.m || (TODAY.m === r.solar.m && TODAY.d < r.solar.d)) ? 1 : 0);
+    return `■ ${p.name} (${p.rel}, ${p.gender === "m" ? "남" : "여"}, 만 ${age}세)
+  생일: ${f.sol}${f.lun ? " / " + f.lun : ""}, 시각: ${f.t}, 출생지: ${f.place}
+  ${pil}
+  일간: ${r.dayMaster.ko}${r.dayMaster.hj} (${r.dayMaster.yang ? "양" : "음"}${r.dayMaster.el}), ${r.animal}띠
+  오행 개수: ${r.elements.map((e) => `${e.el}${e.n}`).join(" ")}
+  대운(${r.forward ? "순행" : "역행"}, 대운수 ${Math.max(1, Math.round(r.daeunStart))}): ${di < 0 ? "아직 첫 대운 전. " : ""}${dae}
+  세운: ${se}${p.memo ? `\n  참고: ${p.memo}` : ""}`;
+  }
+  function contextText() {
+    const T = todayChart.pillars;
+    const ps = chatWith.map((id) => people.find((p) => p.id === id)).filter(Boolean);
+    const me = people.find((p) => p.rel === "나");
+    return `너는 따뜻하고 노련한 한국 명리학(사주팔자) 상담가야. 아래 원국·대운·세운은 페이지가 만세력으로 정확히 계산한 값이니 다시 계산하지 말고 그대로 근거로 써.
+오늘: ${TODAY.y}-${pad(TODAY.m)}-${pad(TODAY.d)} (세운 ${T[3].hj}년, 월운 ${T[2].hj}월, 일진 ${T[1].hj}일)
+이 대화를 보는 사람: ${me ? `${me.name}(‘나’로 등록)` : "사용자"}. 관계는 이 사람 기준이야.
+
+[대화에 넣은 사람]
+${ps.map(personText).join("\n\n")}
+
+[답하는 법]
+- 한국어로, 상대가 바로 써먹을 수 있게 구체적으로. 판단마다 근거(어떤 글자·십성·오행·합충·대운/세운 때문인지)를 짧게 붙여.
+- 길이는 질문에 맞게. 보통 5~12문장, 필요하면 ### 소제목과 - 목록. 표는 쓰지 마.
+- 두 사람 이상이면 일간 관계, 오행 보완, 합·충·형, 십성 관계로 궁합을 봐.
+- 시각 모르는 사람은 시주 없이 본다고 한 번만 밝혀.
+- 겁주거나 단정하는 예언은 하지 마. 건강·법률·돈 문제는 사주상 경향으로만 말하고 필요하면 전문가를 권해.
+- 마지막 줄에 "이어서 물어보기:"를 쓰고, 그 아래 이 사람이 이어서 물어볼 만한 짧은 질문 3개를 "- "로 적어.`;
+  }
+  function splitSugs(text) {
+    const m = text.match(/\**이어서 물어보기\**\s*:?\**/);
+    if (!m) return { body: text, sugs: [] };
+    const i = m.index;
+    const tail = text.slice(i + m[0].length).split("\n").map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim()).filter(Boolean).slice(0, 4);
+    return { body: text.slice(0, i).trim(), sugs: tail };
+  }
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function md(text) { // 굵게·소제목·목록만
+    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    let html = "", list = null;
+    const close = () => { if (list) { html += `</${list}>`; list = null; } };
+    for (const raw of text.split("\n")) {
+      const l = raw.trimEnd();
+      let m;
+      if (!l.trim()) { close(); continue; }
+      if ((m = l.match(/^#{1,4}\s+(.*)/))) { close(); html += `<h3>${inline(m[1])}</h3>`; }
+      else if ((m = l.match(/^\s*[-*•]\s+(.*)/))) { if (list !== "ul") { close(); html += "<ul>"; list = "ul"; } html += `<li>${inline(m[1])}</li>`; }
+      else if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== "ol") { close(); html += "<ol>"; list = "ol"; } html += `<li>${inline(m[1])}</li>`; }
+      else { close(); html += `<p>${inline(l)}</p>`; }
+    }
+    close(); return html;
+  }
+  function starterSugs() {
+    const ps = chatWith.map((id) => people.find((p) => p.id === id)).filter(Boolean);
+    if (ps.length >= 2) return [`${ps.map((p) => p.name).join("·")}의 궁합은 어때요?`, "서로 잘 맞는 점과 부딪히기 쉬운 점은?", "함께 지낼 때 서로 조심하면 좋은 건?", "올해 이 관계의 흐름은?"];
+    const p = ps[0]; if (!p) return [];
+    const n = p.rel === "나" ? "내" : `${p.name}의`;
+    const byRel = {
+      나: ["내 타고난 성격과 강점은?", "올해와 내년 운의 흐름은?", "나에게 맞는 일과 직업 방향은?", "지금 대운에서 조심할 점은?"],
+      아이: [`${p.name}의 기질과 잘 키우는 방법은?`, "공부 스타일과 잘 맞는 진로 방향은?", "올해 아이에게 신경 써 줄 부분은?", "칭찬과 훈육은 어떻게 하면 좋을까?"],
+      동료: [`${p.name}님과 일할 때 잘 맞는 방식은?`, "이 사람의 업무 강점과 약점은?", "갈등이 생기면 어떻게 풀까?", "이 사람에게 부탁할 때 요령은?"],
+      상사: [`${p.name}님은 어떤 보고 방식을 좋아할까?`, "이 상사와 잘 지내는 요령은?", "올해 이 사람의 운 흐름은?"],
+    };
+    return byRel[p.rel] || [`${n} 성격과 강점은?`, `${n} 올해 운은 어때요?`, "이 사람과 잘 지내려면?", "요즘 이 사람이 신경 쓰는 일은?"];
+  }
+  function renderChatArea() {
+    const box = $("chatBox"); if (!box) return;
+    box.replaceChildren();
+    if (!people.length) { box.append(el("p", "muted", "사람을 한 명 이상 넣으면, 그 사주를 바탕으로 무엇이든 이어서 물어볼 수 있어요.")); return; }
+    const pick = el("div", "who-pick"); pick.append(el("span", "small muted", "대화에 넣을 사람"));
+    for (const p of sorted()) {
+      const b = el("button", "tog", p.name); b.type = "button"; b.setAttribute("aria-pressed", String(chatWith.includes(p.id)));
+      b.onclick = () => { if (streaming) return; const on = chatWith.includes(p.id); const next = on ? chatWith.filter((x) => x !== p.id) : [...chatWith, p.id]; if (next.length) setChatWith(next); };
+      pick.append(b);
+    }
+    box.append(pick);
+    const th = el("div", "thread"); th.id = "thread"; th.setAttribute("aria-live", "polite");
+    for (const m of messages) {
+      const b = el("div", "msg " + m.role);
+      if (m.role === "assistant") b.innerHTML = md(m.content); else b.textContent = m.content;
+      th.append(b);
+    }
+    if (streaming) {
+      const b = el("div", "msg assistant"); b.id = "live";
+      if (streaming.text) b.innerHTML = md(splitSugs(streaming.text).body); else b.append(el("span", "typing", "사주를 읽는 중…"));
+      th.append(b);
+    }
+    box.append(th);
+    const list = streaming ? [] : (messages.length ? sugs : starterSugs());
+    if (list.length) {
+      const s = el("div", "sugs");
+      list.forEach((t) => { const b = el("button", "sug", t); b.type = "button"; b.onclick = () => send(t); s.append(b); });
+      box.append(s);
+    }
+    const form = el("form", "ask");
+    const ta = el("textarea"); ta.id = "q"; ta.rows = 2; ta.placeholder = "무엇이든 물어보세요. 예: 이번 이직, 지금 해도 될까요?"; ta.setAttribute("aria-label", "질문");
+    ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); } };
+    const btn = el("button", "primary", streaming ? "멈추기" : "묻기"); btn.type = "submit";
+    form.append(ta, btn);
+    form.onsubmit = (e) => { e.preventDefault(); if (streaming) { streaming.ctl?.abort(); return; } const t = ta.value.trim(); if (t) { ta.value = ""; send(t); } };
+    box.append(form);
+    const foot = el("div", "chat-foot");
+    foot.append(el("span", "", sample?.manual ? "이 계정에서는 Claude 채팅에 붙여넣어 답을 받아와요." : "앞 대화를 기억하고 이어서 답해요."));
+    if (messages.length && !streaming) {
+      const clr = el("button", "linkbtn", "새 대화"); clr.type = "button";
+      clr.onclick = async () => { messages = []; sugs = []; renderChatArea(); try { await store.setChat(chatKey, { messages: [], sugs: [], people: chatWith, updatedAt: new Date().toISOString() }); } catch {} };
+      foot.append(clr);
+    }
+    box.append(foot);
+  }
+  async function saveChat() {
+    try { await store.setChat(chatKey, { messages: messages.slice(-80), sugs, people: chatWith, updatedAt: new Date().toISOString() }); }
+    catch { setStatus("대화를 저장하지 못했어요. 이 화면을 닫으면 사라질 수 있어요.", true); }
+  }
+  function errText(e) {
+    const c = e?.code;
+    if (c === "not_granted") return "Claude 사용 권한이 꺼져 있어요. 페이지 메뉴의 권한 설정에서 허용해 주세요.";
+    if (c === "rate_limited") return "요청이 많아요. 잠시 후 다시 물어봐 주세요.";
+    if (c === "cancelled") return "멈췄어요.";
+    return "답을 받지 못했어요. 다시 물어봐 주세요." + (e?.message ? ` (${e.message})` : "");
+  }
+  async function send(q) {
+    if (streaming || !chatWith.length || !sample) return;
+    const key = chatKey;
+    messages.push({ role: "user", content: q }); sugs = [];
+    const hist = messages.slice(-17, -1).map((m) => ({ role: m.role, content: m.content }));
+    while (hist.length && hist[0].role !== "user") hist.shift();
+    const input = [...hist, { role: "user", content: `${contextText()}\n\n[질문]\n${q}` }];
+    streaming = { text: "", ctl: new AbortController() };
+    let wake = null; navigator.wakeLock?.request("screen").then((l) => { wake = l; }).catch(() => {});
+    renderChatArea(); scrollDown();
+    const live = () => $("live");
+    try {
+      const res = sample.manual
+        ? await askViaChat(input)
+        : await sample(input, { cache: false, signal: streaming.ctl.signal, onText: ({ text }) => { streaming.text = text; const b = live(); if (b) b.innerHTML = md(splitSugs(text).body); } });
+      const { body, sugs: s } = splitSugs(res.text || "");
+      if (key === chatKey) { messages.push({ role: "assistant", content: body + (res.truncated ? "\n\n(답이 길어서 여기서 끊겼어요. ‘계속’이라고 물어보세요.)" : "") }); sugs = s; }
+    } catch (e) {
+      const partial = e?.text ? splitSugs(e.text).body : "";
+      if (key === chatKey) messages.push({ role: "assistant", content: (partial ? partial + "\n\n" : "") + "(" + errText(e) + ")" });
+    } finally {
+      streaming = null; wake?.release?.().catch?.(() => {});
+      if (key === chatKey) { renderChatArea(); scrollDown(); await saveChat(); }
+    }
+  }
+  const scrollDown = () => { const t = $("thread"); t?.lastElementChild?.scrollIntoView({ block: "nearest", behavior: "smooth" }); };
+
+  // Claude를 페이지에서 부를 수 없는 계정: 부탁 글을 복사해 Claude 채팅에 붙여넣고, 답을 다시 붙여넣기
+  function askViaChat(input) {
+    return new Promise((resolve, reject) => {
+      const prompt = input.map((m) => (m.role === "user" ? "[나]\n" : "[상담가]\n") + m.content).join("\n\n") + "\n\n위 마지막 [질문]에 상담가로 답해 줘.";
+      const back = el("div", "back"); const box = el("div", "dlg"); box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Claude 채팅으로 묻기");
+      box.append(el("h3", "", "Claude 채팅으로 묻기"), el("p", "small muted", "1) 아래 글을 복사해 Claude 채팅에 붙여넣고, 2) 받은 답을 그대로 아래 칸에 붙여넣으세요."));
+      const ta = el("textarea"); ta.id = "chatPrompt"; ta.readOnly = true; ta.value = prompt;
+      const copy = el("button", "ghost", "부탁 글 복사"); copy.type = "button";
+      copy.onclick = async () => { try { await navigator.clipboard.writeText(prompt); copy.textContent = "복사했어요"; } catch { ta.select(); copy.textContent = "선택했어요. 복사해 주세요"; } };
+      const ans = el("textarea"); ans.id = "chatAnswer"; ans.placeholder = "Claude 답을 여기에 붙여넣기"; ans.setAttribute("aria-label", "Claude 답");
+      const row = el("div", "row"); const ok = el("button", "primary", "답 넣기"); ok.type = "button"; const no = el("button", "linkbtn", "취소"); no.type = "button";
+      row.append(ok, no);
+      box.append(ta, copy, ans, row); back.append(box); document.body.append(back); copy.focus();
+      const close = () => { back.remove(); document.removeEventListener("keydown", onKey); };
+      const onKey = (e) => { if (e.key === "Escape") { close(); reject({ code: "cancelled" }); } };
+      document.addEventListener("keydown", onKey);
+      no.onclick = () => { close(); reject({ code: "cancelled" }); };
+      ok.onclick = () => { const t = ans.value.trim(); if (!t) { ans.focus(); return; } close(); resolve({ text: t }); };
+    });
+  }
+
+  // ---------- render ----------
+  function renderAll() {
+    renderPeople();
+    const main = $("main"); main.replaceChildren();
+    if (editing) { main.append(renderForm()); return; }
+    const p = cur();
+    if (!p) { selId = sorted()[0]?.id; return renderAll(); }
+    main.append(renderChart(p));
+    const chat = el("section", "panel chat"); chat.setAttribute("aria-label", "물어보기");
+    chat.append(el("h2", "", "물어보기"));
+    const box = el("div", "chat"); box.id = "chatBox"; chat.append(box);
+    main.append(chat);
+    renderChatArea();
+  }
+  $("addBtn").onclick = () => openForm();
+
+  // ---------- boot ----------
+  renderAll();
+  (async () => {
+    const use = (n) => (window.claude?.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
+    const [d, s, u] = await Promise.all([use("db"), use("sample"), use("user")]);
+    sample = s || { manual: true };
+    const id = d && u ? await u.id().catch(() => null) : null;
+    if (d && id) { db = d; base = `data/users/${id}/app`; }
+    else $("privacyNote").textContent = "넣은 내용은 이 브라우저에만 저장돼요.";
+    let first = true;
+    store.watchPeople((list) => {
+      people = list;
+      if (first) { first = false; let saved = null; try { saved = localStorage.getItem("saju:sel"); } catch {} selId = people.some((p) => p.id === saved) ? saved : sorted()[0]?.id || null; if (selId) setChatWith([selId]); }
+      if (!people.some((p) => p.id === selId)) selId = sorted()[0]?.id || null;
+      const keep = chatWith.filter((id) => people.some((p) => p.id === id));
+      if (keep.length !== chatWith.length || (!keep.length && selId)) setChatWith(keep.length ? keep : [selId]);
+      if (!editing) renderAll(); else renderPeople();
+    });
+    setStatus(sample.manual ? "이 계정에서는 페이지가 Claude를 바로 부를 수 없어서, 질문하면 Claude 채팅에 붙여넣는 방식으로 진행돼요." : "");
+  })();
+})();
+</script>
