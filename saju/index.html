@@ -98,10 +98,10 @@ button { cursor: pointer; }
 
 /* 원국 ledger */
 .ledger-scroll { overflow-x: auto; }
-.ledger { display: grid; grid-template-columns: 50px repeat(4, minmax(54px, 1fr)); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; min-width: 280px; }
+.ledger { display: grid; grid-template-columns: 58px repeat(4, minmax(54px, 1fr)); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; min-width: 280px; }
 @media (max-width: 480px) { .panel { padding: 14px 12px; } .ledger > div { padding: 5px 2px; font-size: 12px; } }
 .ledger > div { padding: 6px 4px; text-align: center; border-top: 1px solid var(--line); font-size: 13px; display: grid; place-items: center; }
-.ledger > .rh { background: var(--surface-2); color: var(--muted); font-size: 12px; letter-spacing: 0.04em; }
+.ledger > .rh { background: var(--surface-2); color: var(--muted); font-size: 12px; word-break: keep-all; letter-spacing: 0.04em; }
 .ledger > .ch { background: var(--surface-2); font-weight: 700; border-top: 0; }
 .ledger > .ch.me { color: var(--accent); }
 .ledger .god { color: var(--muted); }
@@ -127,7 +127,7 @@ button { cursor: pointer; }
 .bar .n { text-align: right; font-variant-numeric: tabular-nums; }
 .fill.목 { background: var(--wood); } .fill.화 { background: var(--fire); } .fill.토 { background: var(--earth); } .fill.금 { background: var(--metal); } .fill.수 { background: var(--water); }
 .luck { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-.lk { flex: 0 0 auto; width: 58px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 2px 6px; display: grid; gap: 2px; justify-items: center; font-size: 11px; color: var(--muted); }
+.lk { flex: 0 0 auto; width: 68px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 2px 6px; display: grid; gap: 2px; justify-items: center; font-size: 11px; color: var(--muted); }
 .lk.now { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
 .lk .age { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .lk .c { font-family: var(--font-display); font-weight: 900; font-size: 19px; line-height: 1.1; width: 34px; text-align: center; border-radius: 6px; }
@@ -190,7 +190,7 @@ details.adv[open] summary { margin-bottom: 8px; }
       <span class="seal" aria-hidden="true">命</span>
       <div>
         <h1>사주 노트</h1>
-        <p class="muted small">가족·동료의 사주를 만세력으로 풀고, 그 사주를 바탕으로 무엇이든 물어보세요.</p>
+        <p class="muted small">가족·동료의 생년월일로 사주를 보고, 궁금한 걸 쉬운 말로 계속 물어보세요.</p>
       </div>
     </div>
     <p class="status" id="status" role="status">연결하는 중…</p>
@@ -502,7 +502,7 @@ details.adv[open] summary { margin-bottom: 8px; }
       b.setAttribute("aria-current", String((selId || "example") === p.id && !editing));
       const dm = el("span", "dm" + (r.error ? "" : " el-" + r.dayMaster.el), r.error ? "?" : r.dayMaster.hj);
       dm.setAttribute("aria-hidden", "true");
-      b.append(dm, el("span", "nm", p.name), el("span", "sub", r.error ? p.rel : `${p.rel} · ${r.dayMaster.ko}${r.dayMaster.el} 일간 · ${r.animal}띠`));
+      b.append(dm, el("span", "nm", p.name), el("span", "sub", r.error ? p.rel : `${p.rel} · ${meText(r.dayMaster)} · ${r.animal}띠`));
       b.onclick = () => { if (p.example) return; selectPerson(p.id); };
       box.append(b);
     }
@@ -515,28 +515,38 @@ details.adv[open] summary { margin-bottom: 8px; }
   }
 
   // ---------- chart ----------
+  // 쉬운 말 모드 (기본). '전문 용어로 보기'를 누르면 명리 용어 그대로
+  let expert = false; try { expert = localStorage.getItem("saju:expert") === "1"; } catch {}
+  const EL_PLAIN = { 목: "나무", 화: "불", 토: "흙", 금: "쇠", 수: "물" };
+  const GOD_PLAIN = { "일간(나)": "나", 비견: "친구·동료", 겁재: "경쟁심", 식신: "재능·여유", 상관: "표현·말솜씨", 편재: "사업·큰돈", 정재: "꾸준한 돈", 편관: "도전·압박", 정관: "책임·직장", 편인: "직감·개성", 정인: "배움·도움" };
+  const STEM_PLAIN = ["큰 나무", "풀과 꽃", "태양", "촛불", "큰 산", "논밭의 흙", "바위·쇠", "보석", "바다", "비·이슬"];
+  const elw = (e) => (expert ? e : EL_PLAIN[e]);
+  const godw = (g) => (expert ? g : GOD_PLAIN[g] || g);
+  const meText = (dm) => expert ? `${dm.ko}${dm.el} 일간` : `${STEM_PLAIN[dm.s]}(${dm.ko})`;
   const godCls = (g) => "god" + (g === "일간(나)" ? " me" : "");
   function ledger(r) {
     const L = el("div", "ledger");
     const cols = r.pillars; // 시 일 월 년
     L.append(el("div", "rh ch", ""));
-    cols.forEach((c, i) => L.append(el("div", "ch" + (i === 1 ? " me" : ""), ["시주", "일주", "월주", "년주"][i])));
+    cols.forEach((c, i) => L.append(el("div", "ch" + (i === 1 ? " me" : ""), (expert ? ["시주", "일주", "월주", "년주"] : ["태어난 시", "태어난 날", "태어난 달", "태어난 해"])[i])));
     const row = (name, f) => { L.append(el("div", "rh", name)); cols.forEach((c, i) => { const d = el("div"); f(d, c, i); L.append(d); }); };
     const glyph = (d, c, part) => {
       d.className = "glyph";
       if (!c) { d.append(el("span", "none", "시간 모름")); return; }
       const e = part === "s" ? c.stemEl : c.brEl;
       const g = el("div", "g el-" + e);
-      g.append(el("span", "hj", part === "s" ? c.hj[0] : c.hj[1]), el("span", "ko", (part === "s" ? c.ko[0] : c.ko[1]) + " · " + e));
+      g.append(el("span", "hj", part === "s" ? c.hj[0] : c.hj[1]), el("span", "ko", (part === "s" ? c.ko[0] : c.ko[1]) + " · " + elw(e)));
       g.title = `${part === "s" ? c.ko[0] : c.ko[1]} (${e})`;
       d.append(g);
     };
-    row("십성", (d, c) => { d.className = c ? godCls(c.stemGod) : "god"; d.textContent = c ? c.stemGod : "–"; });
-    row("천간", (d, c) => glyph(d, c, "s"));
-    row("지지", (d, c) => glyph(d, c, "b"));
-    row("십성", (d, c) => { d.className = "god"; d.textContent = c ? c.brGod : "–"; });
-    row("지장간", (d, c) => { d.className = "small muted"; d.textContent = c ? c.hidden : "–"; });
-    row("12운성", (d, c) => { d.textContent = c ? c.stage : "–"; });
+    row(expert ? "십성" : "뜻", (d, c) => { d.className = c ? godCls(c.stemGod) : "god"; d.textContent = c ? godw(c.stemGod) : "–"; });
+    row(expert ? "천간" : "윗글자", (d, c) => glyph(d, c, "s"));
+    row(expert ? "지지" : "아랫글자", (d, c) => glyph(d, c, "b"));
+    row(expert ? "십성" : "뜻", (d, c) => { d.className = "god"; d.textContent = c ? godw(c.brGod) : "–"; });
+    if (expert) {
+      row("지장간", (d, c) => { d.className = "small muted"; d.textContent = c ? c.hidden : "–"; });
+      row("12운성", (d, c) => { d.textContent = c ? c.stage : "–"; });
+    }
     const s = el("div", "ledger-scroll"); s.append(L); return s;
   }
   function currentDaeun(r) {
@@ -544,8 +554,8 @@ details.adv[open] summary { margin-bottom: 8px; }
   }
   function luckCell(top, g, sub, now) {
     const c = el("div", "lk" + (now ? " now" : ""));
-    c.append(el("span", "age", top), el("span", "", g.stemGod), el("span", "c el-" + SAJU.EL[[0, 0, 1, 1, 2, 2, 3, 3, 4, 4][g.s]], g.hj[0]),
-      el("span", "c el-" + SAJU.EL[[4, 2, 0, 0, 2, 1, 1, 2, 3, 3, 2, 4][g.b]], g.hj[1]), el("span", "", g.brGod), el("span", "", sub));
+    c.append(el("span", "age", top), el("span", "", godw(g.stemGod)), el("span", "c el-" + SAJU.EL[[0, 0, 1, 1, 2, 2, 3, 3, 4, 4][g.s]], g.hj[0]),
+      el("span", "c el-" + SAJU.EL[[4, 2, 0, 0, 2, 1, 1, 2, 3, 3, 2, 4][g.b]], g.hj[1]), el("span", "", godw(g.brGod)), el("span", "", sub));
     return c;
   }
   function factsOf(p, r) {
@@ -557,7 +567,9 @@ details.adv[open] summary { margin-bottom: 8px; }
       if (r.correct) {
         const diff = Math.round(pl.lon * 4 - r.offset);
         const dst = pl.tz === "Asia/Seoul" && (r.offset === 600 || r.offset === 570);
-        t = `${r.time} → 태양시 ${r.local} (${pl.name} 경도 보정 ${diff > 0 ? "+" : ""}${diff}분${dst ? ", 서머타임 기간" : ""})`;
+        t = expert
+          ? `${r.time} → 태양시 ${r.local} (${pl.name} 경도 보정 ${diff > 0 ? "+" : ""}${diff}분${dst ? ", 서머타임 기간" : ""})`
+          : `${r.time} (${pl.name} 위치${dst ? "와 서머타임" : ""}에 맞춰 ${r.local}로 계산)`;
       } else t = `${r.time} (보정 안 함)`;
     }
     return { sol, lun, t, place: pl.name };
@@ -588,41 +600,46 @@ details.adv[open] summary { margin-bottom: 8px; }
     if (r.error) { panel.append(el("p", "form-err", r.error)); return panel; }
     const f = factsOf(p, r);
     const facts = el("div", "facts");
-    for (const [k, v] of [["생일", `${p.cal === "lunar" ? f.lun + " (" + f.sol + ")" : f.sol + (f.lun ? " (" + f.lun + ")" : "")}`], ["시각", f.t], ["출생지", f.place], ["띠", `${r.animal}띠 (${r.sajuYear}년 입춘 기준)`]]) {
+    for (const [k, v] of [["생일", `${p.cal === "lunar" ? f.lun + " (" + f.sol + ")" : f.sol + (f.lun ? " (" + f.lun + ")" : "")}`], ["시각", f.t], ["출생지", f.place], ["띠", expert ? `${r.animal}띠 (${r.sajuYear}년 입춘 기준)` : `${r.animal}띠`]]) {
       const s = el("span"); s.append(k + " ", el("b", "", v)); facts.append(s);
     }
     panel.append(facts);
     const w = el("div", "warns");
-    if (!r.time) w.append(el("p", "", "태어난 시각을 몰라 시주 없이 세 기둥(6글자)으로 봐요. 알게 되면 ‘고치기’에서 넣어 주세요."));
-    if (r.nearTerm) w.append(el("p", "", "절기가 바뀌는 시각과 30분 안쪽이라, 출생 시각이 조금만 달라도 월주(와 년주)가 바뀔 수 있어요."));
-    if (r.nearHour) w.append(el("p", "", "시(時)가 바뀌는 경계와 몇 분 차이라, 시주가 옆 시로 바뀔 수 있어요."));
+    if (!r.time) w.append(el("p", "", "태어난 시각을 몰라서 시각을 빼고 6글자로 봐요. 알게 되면 ‘고치기’에서 넣어 주세요."));
+    if (r.nearTerm) w.append(el("p", "", "사주에서 달이 바뀌는 시점과 30분 안쪽으로 태어나서, 태어난 시각이 조금만 달라도 결과가 달라질 수 있어요."));
+    if (r.nearHour) w.append(el("p", "", "태어난 시각이 사주의 두 시간 단위 경계와 몇 분 차이라, 시각이 조금만 달라도 결과가 달라질 수 있어요."));
     if (w.childNodes.length) panel.append(w);
     panel.append(ledger(r));
 
     const cols = el("div", "cols");
     const left = el("div");
-    left.append(el("div", "label", "오행 분포"));
+    left.append(el("div", "label", expert ? "오행 분포" : "다섯 기운"));
     const bars = el("div", "bars");
     const total = r.elements.reduce((a, b) => a + b.n, 0);
     for (const e of r.elements) {
       const b = el("div", "bar"); const tr = el("div", "track"); const fl = el("div", "fill " + e.el);
       fl.style.width = (e.n / total * 100) + "%"; tr.append(fl);
-      b.append(el("span", "", `${e.el} ${e.hj}`), tr, el("span", "n", String(e.n))); bars.append(b);
+      b.append(el("span", "", expert ? `${e.el} ${e.hj}` : EL_PLAIN[e.el]), tr, el("span", "n", String(e.n))); bars.append(b);
     }
     left.append(bars);
-    left.append(el("p", "small muted", `일간 ${r.dayMaster.ko}${r.dayMaster.hj} · ${r.dayMaster.yang ? "양" : "음"}${r.dayMaster.el}. 천간·지지 ${total}글자 기준.`));
+    left.append(el("p", "small muted", expert
+      ? `일간 ${r.dayMaster.ko}${r.dayMaster.hj} · ${r.dayMaster.yang ? "양" : "음"}${r.dayMaster.el}. 천간·지지 ${total}글자 기준.`
+      : `나를 나타내는 글자는 ${r.dayMaster.ko}(${r.dayMaster.hj}), ${STEM_PLAIN[r.dayMaster.s]} 같은 ${EL_PLAIN[r.dayMaster.el]} 기운이에요. 사주 ${total}글자 기준.`));
     const right = el("div");
     const di = currentDaeun(r);
-    right.append(el("div", "label", `대운 · ${r.forward ? "순행" : "역행"} · 대운수 ${Math.max(1, Math.round(r.daeunStart))}`));
+    right.append(el("div", "label", expert ? `대운 · ${r.forward ? "순행" : "역행"} · 대운수 ${Math.max(1, Math.round(r.daeunStart))}` : "10년마다 바뀌는 운"));
     const luck = el("div", "luck");
     r.daeun.forEach((g, i) => luck.append(luckCell(`${g.age}세`, g, `${g.year}`, i === di)));
     right.append(luck);
-    right.append(el("div", "label", "세운"));
+    right.append(el("div", "label", expert ? "세운" : "해마다 바뀌는 운"));
     const sy = el("div", "luck");
     for (let Y = TODAY.y - 1; Y <= TODAY.y + 4; Y++) { const g = SAJU.yearInfo(Y, r.dayMaster.s); sy.append(luckCell(`${Y}`, g, Y === TODAY.y ? "올해" : `${Y - r.solar.y}세`, Y === TODAY.y)); }
     right.append(sy);
     cols.append(left, right);
     panel.append(cols);
+    const tg = el("button", "linkbtn", expert ? "쉬운 말로 보기" : "전문 용어로 보기"); tg.type = "button"; tg.style.justifySelf = "start";
+    tg.onclick = () => { expert = !expert; try { localStorage.setItem("saju:expert", expert ? "1" : "0"); } catch {} renderAll(); };
+    panel.append(tg);
     requestAnimationFrame(() => panel.querySelectorAll(".luck .now").forEach((n) => n.parentElement.scrollLeft = Math.max(0, n.offsetLeft - n.parentElement.offsetLeft - 80)));
     return panel;
   }
@@ -660,12 +677,12 @@ details.adv[open] summary { margin-bottom: 8px; }
         <label class="field"><span>태어난 곳</span><select id="f-place">${PLACES.map((x) => `<option>${x[0]}</option>`).join("")}</select></label>
       </div>
       <label class="field"><span>참고할 내용 (선택)</span><textarea id="f-memo" rows="2" maxlength="300" placeholder="예: 초등학교 2학년, 요즘 학교 적응이 고민 / 같은 팀 팀장, 성격이 급한 편"></textarea></label>
-      <details class="adv"><summary>계산 방식</summary>
+      <details class="adv"><summary>시각 계산 설정</summary>
         <div class="grid2">
-          <label class="check"><input type="checkbox" id="f-correct"> 출생지 경도·서머타임으로 시각 보정 (권장)</label>
-          <label class="field"><span>밤 11시~자정 출생</span><select id="f-jasi"><option value="next">다음 날 자시로 봄 (기본)</option><option value="split">그날로 봄 (야자시)</option></select></label>
+          <label class="check"><input type="checkbox" id="f-correct"> 태어난 곳 위치와 서머타임에 맞춰 시각 고치기 (권장)</label>
+          <label class="field"><span>밤 11시~자정 출생</span><select id="f-jasi"><option value="next">다음 날로 계산 (기본)</option><option value="split">그날로 계산</option></select></label>
         </div>
-        <p class="small muted">한국은 표준시가 동경 135°라 서울 기준 실제 태양시보다 약 32분 빨라요. 1948–1960년, 1987–1988년 서머타임과 1954–1961년 표준시 변경도 자동으로 반영해요.</p>
+        <p class="small muted">한국 시계는 실제 해의 위치보다 30분쯤 빨라서, 서울에서 태어났다면 32분쯤 당겨서 계산해요. 예전 서머타임(1948–1960년, 1987–1988년)도 알아서 반영해요.</p>
       </details>
       <p class="form-err" id="f-err" role="alert"></p>
       <div class="row"><button class="primary" type="submit">저장</button><button class="ghost" type="button" id="f-cancel">취소</button></div>`;
@@ -742,10 +759,13 @@ details.adv[open] summary { margin-bottom: 8px; }
 ${ps.map(personText).join("\n\n")}
 
 [답하는 법]
-- 한국어로, 상대가 바로 써먹을 수 있게 구체적으로. 판단마다 근거(어떤 글자·십성·오행·합충·대운/세운 때문인지)를 짧게 붙여.
+- 한국어로, 상대가 바로 써먹을 수 있게 구체적으로.
+${expert
+  ? "- 명리 용어를 써도 되지만, 처음 나올 때 괄호로 쉬운 뜻을 붙여. 판단마다 근거(어떤 글자·십성·오행·합충·대운/세운 때문인지)를 짧게 붙여."
+  : "- 어려운 명리 용어는 쓰지 마. 십성 이름(비견·식신·편관 등), 일간, 합·충·형, 12운성, 대운·세운, 용신, 신강·신약, 한자 같은 말 대신 '불 기운이 강해서', '10년마다 바뀌는 운이 바뀌는 때라서', '올해 운'처럼 누구나 아는 말로 풀어서 근거를 짧게 붙여."}
 - 길이는 질문에 맞게. 보통 5~12문장, 필요하면 ### 소제목과 - 목록. 표는 쓰지 마.
-- 두 사람 이상이면 일간 관계, 오행 보완, 합·충·형, 십성 관계로 궁합을 봐.
-- 시각 모르는 사람은 시주 없이 본다고 한 번만 밝혀.
+- 두 사람 이상이면 일간 관계, 오행 보완, 합·충·형, 십성 관계로 궁합을 봐. (답에 쓰는 말은 위 규칙대로)
+- 시각 모르는 사람은 태어난 시각 없이 본다고 한 번만 밝혀.
 - 겁주거나 단정하는 예언은 하지 마. 건강·법률·돈 문제는 사주상 경향으로만 말하고 필요하면 전문가를 권해.
 - 마지막 줄에 "이어서 물어보기:"를 쓰고, 그 아래 이 사람이 이어서 물어볼 만한 짧은 질문 3개를 "- "로 적어.`;
   }
