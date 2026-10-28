@@ -260,6 +260,8 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
 .pchip { justify-self: start; font-size: 11px; color: var(--accent); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
 .pchip.weak { color: var(--warn); border-color: var(--warn); }
 .item .warnfor { color: var(--warn); }
+.recipe h4.dish-name { margin: 4px 0 -4px; font-family: var(--font-display); font-weight: 400; font-size: 17px; color: var(--accent); letter-spacing: 0; border-top: 1px dashed var(--line); padding-top: 10px; }
+.recipe .order { font-size: 13px; color: var(--muted); margin: 0; }
 .credit { text-align: center; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: .02em; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
@@ -787,18 +789,30 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
     const right = el("div", "acts");
     right.append(el("span", "serves", `${familyShort()}${r.min ? ` · ${r.min}분` : ""}`));
     const copy = el("button", "link", "레시피 복사"); copy.onclick = () => copyRecipe(key, copy);
+    if (sample && !week.example) {
+      const redo = el("button", "link quiet", "레시피 다시 쓰기"); redo.disabled = busy;
+      redo.onclick = async () => { const recipes = { ...(week.recipes || {}) }; delete recipes[key]; await saveWeek({ recipes }); if (await makeRecipes([key])) { openRecipe = key; renderWeek(); } };
+      right.append(redo);
+    }
     const close = el("button", "link quiet", "닫기"); close.onclick = () => { openRecipe = null; renderWeek(); };
     right.append(copy, close);
     head.append(h, right); box.append(head);
 
-    const body = el("div", "recipe-body");
-    const left = el("div"); left.append(el("h4", null, "재료"));
-    const ul = el("ul", "ing");
-    (r.ingredients || []).forEach((it) => { const li = el("li"); li.append(el("span", null, it.name), el("span", null, it.qty || "")); ul.append(li); });
-    left.append(ul);
-    const rightCol = el("div"); rightCol.append(el("h4", null, "만드는 순서"));
-    const ol = el("ol", "steps"); (r.steps || []).forEach((s) => ol.append(el("li", null, s))); rightCol.append(ol);
-    body.append(left, rightCol); box.append(body);
+    // 요리별(메인·반찬·밥)로 재료와 순서를 따로, 옛 레시피는 한 덩어리로
+    const parts = r.dishes?.length ? r.dishes : [{ name: "", ingredients: r.ingredients || [], steps: r.steps || [] }];
+    parts.forEach((dsh) => {
+      if (dsh.name) box.append(el("h4", "dish-name", dsh.name));
+      const body = el("div", "recipe-body");
+      const left = el("div"); left.append(el("h4", null, "재료"));
+      const ul = el("ul", "ing");
+      (dsh.ingredients || []).forEach((it) => { const li = el("li"); li.append(el("span", null, it.name), el("span", null, it.qty || "")); ul.append(li); });
+      left.append(ul);
+      const rightCol = el("div"); rightCol.append(el("h4", null, "만드는 순서"));
+      const ol = el("ol", "steps"); (dsh.steps || []).forEach((s) => ol.append(el("li", null, s))); rightCol.append(ol);
+      body.append(left, rightCol); box.append(body);
+    });
+    if (r.order) box.append(el("p", "order", "같이 하는 순서 · " + r.order));
+    if (!r.dishes?.length && sample && !week.example) box.append(el("p", "hint", "반찬별로 나눠 보고 싶으면 위의 '레시피 다시 쓰기'를 눌러 주세요."));
     if (r.kidTip) box.append(el("div", "kidtip", "아이 몫 · " + r.kidTip));
     if (r.adultTip) box.append(el("div", "adulttip", "어른 몫 · " + r.adultTip));
     return box;
@@ -806,7 +820,10 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
 
   async function copyRecipe(key, btn) {
     const r = week.recipes[key], p = planFor(key) || {};
-    const lines = [`[${p.menu}] ${familyShort()}`, "", "■ 재료", ...(r.ingredients || []).map((x) => `- ${x.name} ${x.qty || ""}`.trim()), "", "■ 순서", ...(r.steps || []).map((s, n) => `${n + 1}. ${s}`)];
+    const dishLines = r.dishes?.length
+      ? r.dishes.flatMap((dsh) => ["", `■ ${dsh.name}`, ...(dsh.ingredients || []).map((x) => `- ${x.name} ${x.qty || ""}`.trim()), ...(dsh.steps || []).map((st, n) => `${n + 1}. ${st}`)]).concat(r.order ? ["", "같이 하는 순서: " + r.order] : [])
+      : null;
+    const lines = dishLines ? [`[${p.menu}] ${familyShort()}`, ...dishLines] : [`[${p.menu}] ${familyShort()}`, "", "■ 재료", ...(r.ingredients || []).map((x) => `- ${x.name} ${x.qty || ""}`.trim()), "", "■ 순서", ...(r.steps || []).map((s, n) => `${n + 1}. ${s}`)];
     if (r.kidTip) lines.push("", "아이 몫: " + r.kidTip);
     if (r.adultTip) lines.push("어른 몫: " + r.adultTip);
     const text = lines.join("\n");
@@ -1329,16 +1346,16 @@ ${list}
 
 규칙:
 - 분량: ${servesRule()} 재료 양은 이 분량에 맞춰 g, 개, 큰술, 작은술, 컵(200ml) 단위로 구체적으로.
-- 곁들임(반찬·국)도 함께 만드는 걸로 보고 재료와 순서에 포함해.
-- 목표 시간 안에 끝나게, 동시에 할 수 있는 일은 한 단계에 묶어. 순서는 3~7단계, 한 단계는 한두 문장.
+- 메인과 곁들임(반찬·국·밥)을 요리마다 dishes로 나눠: 요리별 재료(양 포함)와 그 요리만의 순서 2~5단계. 반찬도 한 줄로 넘기지 말고 손질·불 세기·시간까지 써.
+- 목표 시간 안에 끝나게. order에는 요리들을 동시에 진행하는 순서를 한 문장으로(예: 밥 취사 → 생선 굽는 동안 볶음). 한 단계는 한두 문장.
 - kidTip: 아이별(이름과 나이 참고)로 몫을 언제 덜어내는지, 크기·간·식감 조절. 아이가 여러 명이면 아이마다 짧게.
 - 도시락이면 아이 몫 양(메모에 어른 몫이 있으면 포함)으로, 식혀서 담는 법과 상하지 않게 하는 팁을 kidTip에.
 - adultTip: 어른 몫에 더하면 좋은 양념 한 문장(없으면 빈 문자열).
 - 소금·간장 같은 기본 양념도 재료에 양과 함께 적어.
-JSON 하나로만 답해: {"recipes":[{"key":"월-dinner","ingredients":[{"name":"","qty":""}],"steps":[""],"kidTip":"","adultTip":"","min":20}]}`;
+JSON 하나로만 답해: {"recipes":[{"key":"월-dinner","dishes":[{"name":"요리 이름","ingredients":[{"name":"","qty":""}],"steps":[""]}],"order":"","kidTip":"","adultTip":"","min":20}]}`;
         const r = await ask(prompt, { modelTier: "quick", cache: false });
         const recipes = { ...(week?.recipes || {}) };
-        (r?.recipes || []).forEach((x) => { if (byDay[d].includes(x?.key) && x.steps?.length) recipes[x.key] = { ingredients: x.ingredients || [], steps: x.steps, kidTip: x.kidTip || "", adultTip: x.adultTip || "", min: x.min || null }; });
+        (r?.recipes || []).forEach((x) => { if (byDay[d].includes(x?.key) && (x.steps?.length || x.dishes?.length)) { const dishes = (x.dishes || []).filter((dd) => dd?.steps?.length); recipes[x.key] = { dishes, order: x.order || "", ingredients: x.ingredients || dishes.flatMap((dd) => dd.ingredients || []), steps: x.steps || [], kidTip: x.kidTip || "", adultTip: x.adultTip || "", min: x.min || null }; } });
         await saveWeek({ recipes });
         done++;
       }
