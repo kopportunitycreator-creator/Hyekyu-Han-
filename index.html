@@ -241,6 +241,12 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
 .item .warnfor { color: var(--warn); }
 .recipe h4.dish-name { margin: 4px 0 -4px; font-family: var(--font-display); font-weight: 400; font-size: 17px; color: var(--accent); letter-spacing: 0; border-top: 1px dashed var(--line); padding-top: 10px; }
 .recipe .order { font-size: 13px; color: var(--muted); margin: 0; }
+.swapbox { display: grid; gap: 8px; margin-top: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.swaplab { font-size: 12px; color: var(--muted); }
+.swapchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+.chip-btn:hover { border-color: var(--accent); color: var(--accent); }
+.swapbox .primary { padding: 8px 14px; font-size: 14px; }
 .credit { text-align: center; font-size: 12px; color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: .02em; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
@@ -455,6 +461,8 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
   let unsubWeek = null, unsubMonth = null;
   let sample = null, busy = false, booted = false;
   let openRecipe = null;
+  let swapOpen = null, swapWish = ""; // '다른 메뉴로'를 펼친 끼니와 적은 요청
+  const SWAP_CHIPS = ["더 간단하게", "다른 단백질로", "국물 있는 걸로", "해린이가 좋아하는 걸로", "집 재료로"];
   let selDay = null; // 보여줄 요일, 또는 "shop"이면 장보기 목록 // slot key of the recipe shown under its day
   const files = { lunch: [], mb: [], fridge: [] };
 
@@ -779,14 +787,37 @@ input[type="number"] { width: 90px; font-variant-numeric: tabular-nums; }
         r.onclick = async () => { await makeRecipes([k]); if (week?.recipes?.[k]) { openRecipe = k; renderWeek(); } };
         acts.append(r);
       }
-      if (sample && !week.example) { const s = el("button", "link", "다른 메뉴로"); s.disabled = busy; s.onclick = () => swapMeal(i, m.k, s); acts.append(s); }
+      if (sample && !week.example) { const s = el("button", "link" + (swapOpen === k ? " on" : ""), "다른 메뉴로"); s.disabled = busy; s.onclick = () => { swapOpen = swapOpen === k ? null : k; swapWish = ""; renderWeek(); setTimeout(() => $("swap-" + k)?.focus(), 0); }; acts.append(s); }
     } else {
       c.append(el("span", "placeholder", "식단 짜면 채워져요"));
       if (sample && week?.days?.length && !week.example) { const f = el("button", "link", "이 끼니만 짜기"); f.disabled = busy; f.onclick = () => swapMeal(i, m.k, f); acts.append(f); }
     }
     const off = el("button", "link quiet", "외식·빼기"); off.onclick = () => setOff(i, m.k, "외식"); acts.append(off);
     c.append(acts);
+    if (swapOpen === k && plan?.menu) c.append(swapBox(i, m, k));
     return c;
+  }
+  // '다른 메뉴로': 어떻게 바꿀지 적거나 골라서 바꾸기 (비워두면 알아서)
+  function swapBox(i, m, k) {
+    const box = el("div", "swapbox");
+    box.append(el("span", "swaplab", "어떻게 바꿀까요? 비워두면 알아서 바꿔요."));
+    const inp = el("input"); inp.type = "text"; inp.id = "swap-" + k; inp.value = swapWish;
+    inp.placeholder = "예) 생선으로, 김치볶음밥으로, 오이 빼고"; inp.setAttribute("aria-label", "바꾸고 싶은 점");
+    inp.oninput = () => { swapWish = inp.value; };
+    const chips = el("div", "swapchips");
+    SWAP_CHIPS.forEach((t) => {
+      const b = el("button", "chip-btn", t);
+      b.onclick = () => { inp.value = inp.value.trim() ? `${inp.value.trim()}, ${t}` : t; swapWish = inp.value; inp.focus(); };
+      chips.append(b);
+    });
+    const row = el("div", "acts");
+    const go = el("button", "primary", "바꾸기"); go.disabled = busy || !sample;
+    const run = () => { const w = inp.value.trim(); swapOpen = null; swapWish = ""; renderWeek(); swapMeal(i, m.k, go, w); };
+    go.onclick = run; inp.onkeydown = (e) => { if (e.key === "Enter") run(); };
+    const cancel = el("button", "link quiet", "취소"); cancel.onclick = () => { swapOpen = null; swapWish = ""; renderWeek(); };
+    row.append(go, cancel);
+    box.append(chips, inp, row);
+    return box;
   }
 
   function renderShop() {
@@ -1166,7 +1197,7 @@ JSON 하나로만 답해: {"recipes":[{"key":"월-dinner","dishes":[{"name":"요
     } finally { setBusy(false); }
   }
 
-  async function swapMeal(i, meal, btn) {
+  async function swapMeal(i, meal, btn, wish = "") {
     if (!sample || busy || !week) return;
     const d = DAYS[i], label = ALL_MEALS.find((m) => m.k === meal).l;
     const k = kinderFor(i) || {}, nk = i < 4 ? kinderFor(i + 1) || {} : {};
@@ -1174,7 +1205,7 @@ JSON 하나로만 답해: {"recipes":[{"key":"월-dinner","dishes":[{"name":"요
     const current = week.days.find((x) => x.day === d)?.[meal]?.menu || "";
     const prompt = `한국 가정 식단에서 ${d}요일 ${label} 메뉴 하나만 다른 것으로 바꿔줘.
 ${familyBlock()}
-[지금 메뉴 — 이것 말고] ${current}
+[지금 메뉴 — 이것 말고] ${current}${wish ? `\n[바꾸고 싶은 점 — 가장 먼저 지켜줘] ${wish}` : ""}
 [이번 주 다른 끼니 — 겹치지 않게] ${others}
 [그날 유치원] 점심 ${k.lunch || "없음"} / 간식 ${k.snack || "없음"} / 메이플베어 ${k.mb || "없음"}
 ${meal === "dinner" ? `[다음 날 유치원 점심] ${nk.lunch || "없음"}` : meal === "snack" ? "유치원 다녀온 뒤 집 간식, 5~10분 준비." : meal === "lunch" ? "집 점심: 그날 아침·저녁과 겹치지 않게, 20분 안팎." : meal === "lunchbox" ? `소풍 도시락(${week.lunchbox?.[d] || "소풍"}): 식어도 맛있고 손이나 포크로 먹기 쉽게, 상하기 쉬운 재료는 피해서. 도시락 먹는 아이는 이날 기관 점심을 안 먹어.` : "아침이니 10~15분 이내."}
