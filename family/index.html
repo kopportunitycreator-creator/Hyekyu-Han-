@@ -487,6 +487,7 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
   let sample = null, busy = false, booted = false;
   let openRecipe = null;
   let swapOpen = null, swapWish = ""; // '다른 메뉴로'를 펼친 끼니와 적은 요청
+  let moveOpen = null; // '요일 바꾸기'를 펼친 끼니
   const SWAP_CHIPS = ["더 간단하게", "다른 단백질로", "국물 있는 걸로", "아이가 좋아하는 걸로", "집 재료로"];
   let selDay = null; // 보여줄 요일, 또는 "shop"이면 장보기 목록 // slot key of the recipe shown under its day
   const files = { lunch: [], mb: [], fridge: [] };
@@ -925,6 +926,8 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
       const pr = proteinOf(plan);
       if (pr && m.k !== "snack") c.append(el("span", "pchip" + (pr === "달걀" && m.k !== "breakfast" ? " weak" : ""), "단백질 " + (plan.p || pr)));
       c.append(t);
+      const clash = kinderClash(i, m.k, plan);
+      if (clash) c.append(el("span", "pchip weak", clash));
       if (plan.sides?.length) c.append(el("span", "sides", plan.sides.join(" · ")));
       if (plan.tip) c.append(el("span", "tip", plan.tip));
       if (week.recipes?.[k]) {
@@ -936,7 +939,8 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
         r.onclick = async () => { await makeRecipes([k]); if (week?.recipes?.[k]) { openRecipe = k; renderWeek(); } };
         acts.append(r);
       }
-      if (sample && !week.example) { const s = el("button", "link" + (swapOpen === k ? " on" : ""), "다른 메뉴로"); s.disabled = busy; s.onclick = () => { swapOpen = swapOpen === k ? null : k; swapWish = ""; renderWeek(); setTimeout(() => $("swap-" + k)?.focus(), 0); }; acts.append(s); }
+      if (!week.example && moveTargets(i, m.k).length) { const mv = el("button", "link" + (moveOpen === k ? " on" : ""), "요일 바꾸기"); mv.disabled = busy; mv.onclick = () => { moveOpen = moveOpen === k ? null : k; swapOpen = null; renderWeek(); }; acts.append(mv); }
+      if (sample && !week.example) { const s = el("button", "link" + (swapOpen === k ? " on" : ""), "다른 메뉴로"); s.disabled = busy; s.onclick = () => { swapOpen = swapOpen === k ? null : k; swapWish = ""; moveOpen = null; renderWeek(); setTimeout(() => $("swap-" + k)?.focus(), 0); }; acts.append(s); }
     } else {
       c.append(el("span", "placeholder", "식단 짜면 채워져요"));
       if (sample && week?.days?.length && !week.example) { const f = el("button", "link", "이 끼니만 짜기"); f.disabled = busy; f.onclick = () => swapMeal(i, m.k, f); acts.append(f); }
@@ -944,7 +948,62 @@ select { border: 1px solid var(--line); border-radius: 8px; background: var(--bg
     const off = el("button", "link quiet", "외식·빼기"); off.onclick = () => setOff(i, m.k, "외식"); acts.append(off);
     c.append(acts);
     if (swapOpen === k && plan?.menu) c.append(swapBox(i, m, k));
+    if (moveOpen === k && plan?.menu) c.append(moveBox(i, m, k));
     return c;
+  }
+  // ---------- 요일 바꾸기: 같은 끼니끼리 두 요일의 메뉴를 맞바꿈 (AI 안 씀) ----------
+  function moveTargets(i, mk) {
+    return DAYS.map((d, j) => j).filter((j) => j !== i && isOn(j, mk));
+  }
+  function moveBox(i, m, k) {
+    const box = el("div", "swapbox");
+    box.append(el("span", "swaplab", `어느 요일 ${m.l}과 바꿀까요?`));
+    const list = el("div", "swapchips");
+    moveTargets(i, m.k).forEach((j) => {
+      const other = week.days.find((x) => x.day === DAYS[j])?.[m.k];
+      const b = el("button", "chip-btn", `${DAYS[j]} · ${other?.menu || "비어 있음"}`);
+      b.onclick = () => swapDays(i, j, m.k);
+      list.append(b);
+    });
+    const cancel = el("button", "link quiet", "취소"); cancel.onclick = () => { moveOpen = null; renderWeek(); };
+    box.append(list, cancel);
+    return box;
+  }
+  async function swapDays(i, j, mk) {
+    const di = DAYS[i], dj = DAYS[j], label = ALL_MEALS.find((x) => x.k === mk).l;
+    const days = DAYS.map((d) => ({ day: d, ...(week.days.find((x) => x.day === d) || {}) }));
+    const a = days[i][mk] ?? null, b = days[j][mk] ?? null;
+    days[i] = { ...days[i], [mk]: b, avoided: "" }; days[j] = { ...days[j], [mk]: a, avoided: "" };
+    const recipes = { ...(week.recipes || {}) };
+    const ra = recipes[`${di}-${mk}`], rb = recipes[`${dj}-${mk}`];
+    delete recipes[`${di}-${mk}`]; delete recipes[`${dj}-${mk}`];
+    if (rb) recipes[`${di}-${mk}`] = rb;
+    if (ra) recipes[`${dj}-${mk}`] = ra;
+    moveOpen = null;
+    await saveWeek({ days, recipes });
+    const warns = [[i, b], [j, a]].map(([x, pl]) => pl && kinderClash(x, mk, pl) ? `${DAYS[x]} ${label}(${pl.menu}): ${kinderClash(x, mk, pl)}` : null).filter(Boolean);
+    setStatus(`${di} ${label}과 ${dj} ${label}을 바꿨어요.` + (warns.length ? ` 확인해 주세요 — ${warns.join(" / ")}. 겹치면 '다른 메뉴로'로 바꿀 수 있어요.` : ""), !!warns.length);
+  }
+  // 그날(저녁은 다음 날까지) 기관 메뉴와 메인 단백질·주재료가 겹치는지 페이지가 직접 확인
+  const CLASH_SKIP = new Set(["쌀", "밥", "현미", "잡곡", "양파", "대파", "파", "마늘", "당근", "김치", "깍두기", "소금", "간장", "참기름", "깨", "우유", "물", "김", "식빵", "빵", "과일", "사과", "바나나"]);
+  function kinderText(x) {
+    if (x < 0 || x > 4) return "";
+    const ks = kinderFor(x); const arr = Array.isArray(ks) ? ks : ks ? [ks] : [];
+    return arr.map((kk) => [kk.lunch, kk.snack, kk.mb].filter(Boolean).join(" ")).join(" ");
+  }
+  function kinderClash(i, mk, plan) {
+    if (!plan?.menu || mk === "lunchbox") return "";
+    const hits = [];
+    [[i, "그날"], ...(mk === "dinner" ? [[i + 1, "다음 날"]] : [])].forEach(([x, when]) => {
+      const kt = kinderText(x); if (!kt) return;
+      const pr = proteinOf(plan); const pre = PROTEINS.find(([kname]) => kname === pr)?.[1];
+      const words = [...new Set([...(plan.ing || []), ...plan.menu.split(/\s+/)].map((w) => w.replace(/\(.*?\)/g, "").trim()).filter((w) => w.length >= 2 && !CLASH_SKIP.has(w)))];
+      const same = [];
+      if (pr && pr !== "달걀" && pre?.test(kt)) same.push(pr);
+      words.forEach((w) => { if (kt.includes(w) && !same.includes(w)) same.push(w); });
+      if (same.length) hits.push(`${when} 기관 메뉴와 겹칠 수 있어요: ${same.slice(0, 3).join(", ")}`);
+    });
+    return hits.join(" · ");
   }
   // '다른 메뉴로': 어떻게 바꿀지 적거나 골라서 바꾸기 (비워두면 알아서)
   function swapBox(i, m, k) {
